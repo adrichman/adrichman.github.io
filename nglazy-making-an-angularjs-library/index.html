@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    
+    <title>ngLazy: Making an AngularJS Library</title>
+    <meta name="description" content="" />
+
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="shortcut icon" href="../favicon.ico">
+
+    
+    <link rel="stylesheet" type="text/css" href="../assets/css/screen.css?v=af08e5c30f" />
+    <link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Noto+Serif:400,700,400italic|Open+Sans:700,400" />
+
+    
+    <meta name="generator" content="Ghost 0.4" />
+<link rel="alternate" type="application/rss+xml" title="refactoring." href="../rss/index.html">
+<link rel="canonical" href="http://my-ghost-blog.com/nglazy-making-an-angularjs-library/" />
+</head>
+<body class="post-template">
+
+    
+    
+
+
+
+<main class="content" role="main">
+
+    <article class="post">
+
+        
+        <header class="post-header">
+            <a class="blog-logo" href="http://my-ghost-blog.com">
+                
+                    <span class="blog-title">refactoring.</span>
+                
+            </a>
+        </header>
+
+        
+        
+
+            <span class="post-meta"><time datetime="2014-06-03">03 Jun 2014</time> </span>
+
+            <h1 class="post-title">ngLazy: Making an AngularJS Library</h1>
+
+            <section class="post-content">
+                <h3 id="inpursuitofreusablity">In pursuit of re-usablity</h3>
+
+<p>A little while ago, I wrote a blog post about <a href="http://127.0.0.1:2368/blog/2014/05/12/implementing-a-lazy-load-and-infinite-scroll-in-angularjs/">implementing a lazy load / infinite scroll in an app I was hacking on</a>. The logic was spread between a controller and directive, and it needed decoupling. It couldn't be re-used without copying a ton of code into any controller that wanted to use the feature. Further, implementing my spinner required logic throughout the controller that exists just to manipulate the DOM. It was a fine first implementation, but now it's time to refactor. I planned to:</p>
+
+<ul>
+<li>extract all DOM logic and spinner related manipulation into a directive</li>
+<li>extract the entire concept and turn it into an Angular library.</li>
+</ul>
+
+<p>The end goal is for the user to be able to implement a lazy-loading infinite scroll and spinner via a simple directive.</p>
+
+<p>The result is <a href="http://github.com/adrichman/ngLazy"><strong>ngLazy</strong></a>.</p>
+
+<p>Now my controller is as agnostic to this feature as any other controller:  </p>
+
+<pre><code>.controller('listController', ['$scope', function($scope){
+  $scope.data = {
+    mongo : [],
+    gh    : {},
+    keen  : {}
+  };
+}])
+</code></pre>
+
+<p>The feature still requires a good amount of configuration per use case, so I have designed it with a factory and directive which takes configuration via the directive's element's attributes:</p>
+
+<pre><code>&lt;lazy-load  
+  lazy-data="data"
+  lazy-data-service="dataService"
+  lazy-fetch-method="getData"
+  lazy-range="12"
+  lazy-data-collection-key="mongo"
+  lazy-data-keys="['mongo','gh','keen']"
+  lazy-start-delay="150"
+  lazy-append-delay="1000"
+  lazy-spinner-color="#4FA7D9"
+  &gt;
+   &lt;table&gt;
+      &lt;thead&gt;
+         &lt;tr&gt;
+              &lt;td&gt;NAME&lt;/td&gt;
+              &lt;td&gt;STATS&lt;/td&gt;
+              &lt;td&gt;COMMENTS&lt;/td&gt;
+         &lt;/tr&gt;
+      &lt;/thead&gt;
+      &lt;tbody&gt;
+          &lt;tr ng-repeat="datum in data.mongo"&gt;
+              &lt;td class="cohort-pic"&gt;
+                &lt;span class="cohort-name"&gt;{{ datum.First }} {{ datum.Last }}&lt;/span&gt;&lt;br&gt;
+              &lt;/td&gt;
+               &lt;td class="cohort-stats-col cohort-score"&gt;
+                 &lt;div&gt; some stats&lt;/div&gt;
+              &lt;/td&gt;
+              &lt;td &gt;&lt;textarea class="form-control cohort-comments-form" rows="3"&gt;{{ datum.comments }}&lt;/textarea&gt;
+              &lt;/td&gt;
+          &lt;/tr&gt;
+      &lt;/tbody&gt;
+  &lt;/table&gt;
+&lt;/lazy-load&gt;  
+</code></pre>
+
+<pre><code>(function(angular){
+  'use strict';
+
+  angular.module('ngLazy',[
+    'ngLazy.factories',
+    'ngLazy.directives'
+  ]);
+
+  angular.module('ngLazy.directives',[])
+  .directive('lazyLoad', ['$injector','$window','$document','$timeout','$rootScope',function($injector, $window, $document, $timeout, $rootScope){
+
+    var appendAnimations = function(){
+      var style       = document.createElement('style');
+      var keyframes   = '@-webkit-keyframes spin {\n' +
+                        '\t0%{-webkit-transform: rotate(0deg);}\n' +
+                        '\t100%{-webkit-transform: rotate(360deg);}\n' +
+                        '}\n' +
+                        '@keyframes spin{\n' +
+                        '\t0%{transform: rotate(0deg);}\n' +
+                        '\t100%{transform: rotate(360deg);}\n' +
+                        '}';
+
+      style.innerHTML = keyframes;
+      document.head.appendChild(style);
+    };
+
+    var makeSpinner = function(el){
+      el.css({
+        WebkitBoxSizing: 'border-box',
+        boxSizing: 'border-box',
+        display: 'block',
+        width: '43px',
+        height: '43px',
+        margin: 'auto',
+        borderWidth: '8px',
+        borderStyle: 'solid',
+        borderColor: 'transparent rgb(85, 148, 250) rgb(85, 148, 250) rgb(85, 148, 250)',
+        borderRadius: '22px',
+        animation: 'spin 0.8s linear infinite',
+        WebkitAnimation: 'spin 0.8s linear infinite'
+      });
+      return el;
+    };
+
+    return {
+      restrict: 'E',
+      scope: {
+        lazyData              : '=',
+        lazyDataCollectionKey : '@',
+        lazyDataService       : '@',
+        lazyFetchMethod       : '@',
+        lazyRange             : '@',
+        lazyDataKeys          : '=',
+        lazyStartDelay        : '@',
+        lazyAppendDelay       : '@',
+        lazySpinnerColor      : '@'
+      },
+      transclude: true,
+      template: '&lt;div ng-transclude&gt;&lt;/div&gt;' +
+                '&lt;div class=\'col-md-12 loading\' ng-hide=\'spinner.hide\'&gt;' +
+                  '&lt;div class=\'loading-widget\'&gt;&lt;/div&gt;' +
+                '&lt;/div&gt;'+
+                '&lt;div id=\'lazy-bottom\'&gt;&lt;/div&gt;',
+      link: function(scope) {
+              var winEl             = angular.element($window),
+                  win               = winEl[0],
+                  lazyBottom        = angular.element(document.querySelector('#lazy-bottom'))[0],
+                  lazyBottomOffset  = lazyBottom.offsetTop - 20,
+                  lazyLoader        = $injector.get('lazyLoader'),
+                  dataService       = $injector.get(scope.lazyDataService),
+                  loadingWidget     = angular.element(document.querySelector('.loading-widget')),
+                  hasRun            = false,
+                  loading           = false;
+
+              appendAnimations();
+              loadingWidget         = makeSpinner(loadingWidget);
+              scope.spinner         = { hide : false };
+
+              var lazyLoad = function(){
+                lazyLoader.configure({
+                  data            : scope.lazyData,
+                  collectionKey   : scope.lazyDataCollectionKey,
+                  fetchData       : dataService[scope.lazyFetchMethod],
+                  range           : scope.lazyRange,
+                  dataKeys        : scope.lazyDataKeys,
+                  startDelay      : scope.lazyStartDelay,
+                  appendDelay     : scope.lazyAppendDelay
+                });
+
+                lazyLoader.load().then(function(data){
+                  if(!hasRun){
+                    angular.forEach(Object.keys(data), function(key){
+                      scope.lazyData[key] = data[key];
+                    });
+                  } else {
+                    scope.lazyData[scope.lazyDataCollectionKey] = data[scope.lazyDataCollectionKey];
+                  }
+                  loading = false;
+                });
+              };
+
+              $rootScope.$on('hideLoading', function(){ scope.spinner.hide = true; });
+              $rootScope.$on('showLoading', function(){ scope.spinner.hide = false; });
+
+              winEl.bind('scroll', function(){
+                if (!loading &amp;&amp; win.scrollY &gt;= lazyBottomOffset) {
+                  loading = true;
+                  lazyBottomOffset = lazyBottomOffset * 2;
+                  win.requestAnimationFrame(function(){
+                    scope.$apply(function(){
+                      lazyLoad();
+                      lazyBottomOffset = lazyBottom.offsetTop-10;
+                    });
+                  });
+                }
+              });
+              lazyLoad();
+            }
+          };
+  }]);
+
+  angular.module('ngLazy.factories',[])
+  .factory('lazyLoader', ['$timeout','$rootScope', '$q', function($timeout, $rootScope, $q){
+    var cache = { data : {} },
+        config,
+        data,
+        collectionKey,
+        fetch,
+        responseKeys,
+        range,
+        appendDelay,
+        startDelay;
+
+    return ({
+
+      configure:  function(options){
+                    config = options;
+      },
+
+      getData : function(){
+                  data          = config.data;
+                  collectionKey = config.collectionKey;
+                  fetch         = config.fetchData;
+                  responseKeys  = config.dataKeys;
+                  range         = config.range;
+                  appendDelay   = config.appendDelay;
+                  startDelay    = config.startDelay;
+
+                  var deferred  = $q.defer();
+
+                  $rootScope.$broadcast('showLoading');
+
+                  if (!cache.data[collectionKey]) {
+                    fetch().then(function(res){
+                      angular.forEach(responseKeys, function(key){
+                        cache.data[key] = res.data[key];
+                        if (key === collectionKey) {
+                          data[key]       = [];
+                          data[key] = data[key].concat(cache.data[key].splice(0, range));
+                        } else {
+                          data[key] = cache.data[key];
+                        }
+                      });
+                      deferred.resolve(data);
+                      $rootScope.$broadcast('hideLoading');
+                    });
+                  } else {
+                    $timeout(function(){
+                      data[collectionKey] = data[collectionKey].concat(cache.data[collectionKey].splice(0, range));
+                      deferred.resolve(data);
+                      $rootScope.$broadcast('hideLoading');
+                    }, appendDelay);
+                  }
+                  return deferred.promise;
+      },
+
+      load :  function(){
+                var deferred = $q.defer();
+                var _this = this;
+
+                $rootScope.$broadcast('showLoading');
+
+                var loadTimer = $timeout(function(){
+                  _this.getData().then(function(col){
+                    deferred.resolve(col);
+                  });
+                }, startDelay);
+
+                loadTimer.then(function(){
+                  $timeout.cancel(loadTimer);
+                });
+
+                return deferred.promise;
+      }
+    });
+  }]);
+
+})(angular);
+</code></pre>
+
+<p>In the future, I am looking to make this module more configurable, such as adding a custom spinner or easily changing the spinner styling. I also intend to further refactor this to remove elements from the DOM when they have left the screen, and re-add them upon scrolling up.</p>
+
+<p>The configuration is explained in the <a href="http://github.com/adrichman/ngLazy/">repo's README</a>, but the main-takeaway is this: with the <code>&lt;lazy-load&gt;</code> tag, simply wrap the element that will be displaying your list of info. Tell the lazy-load library what service you will use to fetch that data and how you would like it to be divided and presented. <strong>ngLazy handles the rest.</strong></p>
+
+<p><em>NEXT UP: <a href="http://127.0.0.1:2368/blog/2014/06/10/configuring-karma-for-angularjs-testing/">Testing ngLazy</a></em></p>
+            </section>
+
+            <footer class="post-footer">
+
+                <section class="author">
+                    <h4>Adam D Richman</h4>
+                    <p>Food-and-Music-loving Software Engineer</p>
+                    <ul class="author-meta clearfix">
+                        <li>San Francisco, CA</li>
+                        <li><a href="http://www.adamrichman.com">http://www.adamrichman.com</a></li>
+                    </ul>
+                </section>
+
+                <section class="share">
+                    <h4>Share this post</h4>
+                    <a class="icon-twitter" href="https://twitter.com/share?text=ngLazy%3A%20Making%20an%20AngularJS%20Library&amp;url=http://my-ghost-blog.com/nglazy-making-an-angularjs-library/"
+                        onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
+                        <span class="hidden">Twitter</span>
+                    </a>
+                    <a class="icon-facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://my-ghost-blog.com/nglazy-making-an-angularjs-library/"
+                        onclick="window.open(this.href, 'facebook-share','width=580,height=296');return false;">
+                        <span class="hidden">Facebook</span>
+                    </a>
+                    <a class="icon-google-plus" href="https://plus.google.com/share?url=http://my-ghost-blog.com/nglazy-making-an-angularjs-library/"
+                       onclick="window.open(this.href, 'google-plus-share', 'width=490,height=530');return false;">
+                        <span class="hidden">Google+</span>
+                    </a>
+                </section>
+
+            </footer>
+
+        
+
+    </article>
+
+</main>
+
+
+    <footer class="site-footer">
+        <a class="subscribe icon-feed" href="http://my-ghost-blog.com/rss/"><span class="tooltip">Subscribe!</span></a>
+        <div class="inner">
+             <section class="copyright">All content copyright <a href="http://my-ghost-blog.com/">refactoring.</a> &copy; 2014 &bull; All rights reserved.</section>
+             <section class="poweredby">Proudly published with <a class="icon-ghost" href="https://ghost.org">Ghost</a></section>
+        </div>
+    </footer>
+
+    
+    <script src="../public/jquery.js?v=af08e5c30f"></script>
+
+    
+    <script type="text/javascript" src="../assets/js/jquery.fitvids.js?v=af08e5c30f"></script>
+    <script type="text/javascript" src="../assets/js/index.js?v=af08e5c30f"></script>
+
+</body>
+</html>

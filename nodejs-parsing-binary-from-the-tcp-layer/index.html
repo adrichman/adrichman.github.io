@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    
+    <title>NodeJS: Parsing Binary from the TCP Layer</title>
+    <meta name="description" content="" />
+
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="shortcut icon" href="../favicon.ico">
+
+    
+    <link rel="stylesheet" type="text/css" href="../assets/css/screen.css?v=af08e5c30f" />
+    <link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Noto+Serif:400,700,400italic|Open+Sans:700,400" />
+
+    
+    <meta name="generator" content="Ghost 0.4" />
+<link rel="alternate" type="application/rss+xml" title="refactoring." href="../rss/index.html">
+<link rel="canonical" href="http://my-ghost-blog.com/nodejs-parsing-binary-from-the-tcp-layer/" />
+</head>
+<body class="post-template">
+
+    
+    
+
+
+
+<main class="content" role="main">
+
+    <article class="post">
+
+        
+        <header class="post-header">
+            <a class="blog-logo" href="http://my-ghost-blog.com">
+                
+                    <span class="blog-title">refactoring.</span>
+                
+            </a>
+        </header>
+
+        
+        
+
+            <span class="post-meta"><time datetime="2014-06-26">26 Jun 2014</time> </span>
+
+            <h1 class="post-title">NodeJS: Parsing Binary from the TCP Layer</h1>
+
+            <section class="post-content">
+                <p>For a job recently, I was asked to create a bridge server that translated the protocol of an old legacy server to a new HTML5 client, and vice versa. The old protocol was built upon C# structs, and the server was communicating in binary on the TCP layer. The new client will be communicating in JSON messages via TCP over HTTP (aka web sockets).</p>
+
+<p>NodeJS comes nicely equipped with a module, <a href="http://nodejs.org/api/net.html">net</a>,  for commuinicating via the TCP layer. Simply <code>require('net')</code> and you are now equipped to open a TCP socket. The module comes with a class Socket, and new socket connections can be instantiated when needed:</p>
+
+<pre><code>var tcpSock = require('net');  
+var client  = new tcpSock.Socket;  
+var socket  = client.connect(PORT, HOST);  
+</code></pre>
+
+<p>NodeJS also features a <a href="http://nodejs.org/api/buffer.html">Buffer class</a>, that will assemble raw binary data packets into an array-like object that can contain only integers. One instance of the Buffer class represents a specific, fixed size memory allocation outside of the V8 heap. I use it to collect incoming data packets, as well as to properly assemble my outgoing binary data.</p>
+
+<pre><code>var buffer = new Buffer(0, 'hex');
+
+// listen for incoming data
+socket.on("data", function(data){
+
+    // a custom function for logging more readable binary
+    logDataStream(data)
+
+    // pack incoming data into the buffer
+    buffer = Buffer.concat([buffer, new Buffer(data, 'hex')]);
+})
+</code></pre>
+
+<p>The incoming binary was organized as C structs, and I am able to parse the data fairly easily using a great npm library called <a href="https://github.com/xdenser/node-struct">node-struct</a>. The node-struct library allows the developer to define the structs in terms of javascript objects with strictly typed, pre-allocated fields. There are types for 8bit words through 32 bit, signed and unsigned, big and little endian. There are also fields for ascii and other encoded characters, as well as fields for other structs within structs. For example:  </p>
+
+<pre><code>var Struct = require('struct').Struct;
+
+function makeAndParsePersonFromBinary(buffer){  
+  var person = new Struct()
+                    .('word8', 'Sex')     // 0 or 1 for instance
+                    .('word32Ule', 'Age')
+                    .('chars','Name', 64);
+
+  person._setBuff(buffer);
+  return person;
+};
+
+var incomingPerson = makeAndParsePersonFromBinary(buffer);  
+</code></pre>
+
+<p>Once the struct has been seeded with the binary buffer, you can now access the values from the binary packets, properly parsed as fields on the struct:  </p>
+
+<pre><code>var personName = incomingPerson.get('Name');  
+</code></pre>
+
+<p>As you can probably see, this <a href="https://github.com/xdenser/node-struct">node-struct</a> library is a very useful tool when working in NodeJS with binary streams that represent structs.</p>
+
+<p>The data is parsed and I'm ready to start working with it in my app.</p>
+
+<p>Sometimes I just want to see the raw ints come in and out. FWIW, here's how I'm logging my incoming and outgoing binary streams:  </p>
+
+<pre><code>function logDataStream(data){  
+  // log the binary data stream in rows of 8 bits
+  var print = "";
+  for (var i = 0; i &lt; data.length; i++) {
+    print += " " + data[i].toString(16);
+
+    // apply proper format for bits with value &lt; 16, observed as int tuples
+    if (data[i] &lt; 16) { print += "0"; }
+
+    // insert a line break after every 8th bit
+    if ((i + 1) % 8 === 0) {
+      print += '\n';
+    };
+  }
+
+  // log the stream
+  console.log(print);
+}
+</code></pre>
+            </section>
+
+            <footer class="post-footer">
+
+                <section class="author">
+                    <h4>Adam D Richman</h4>
+                    <p>Food-and-Music-loving Software Engineer</p>
+                    <ul class="author-meta clearfix">
+                        <li>San Francisco, CA</li>
+                        <li><a href="http://www.adamrichman.com">http://www.adamrichman.com</a></li>
+                    </ul>
+                </section>
+
+                <section class="share">
+                    <h4>Share this post</h4>
+                    <a class="icon-twitter" href="https://twitter.com/share?text=NodeJS%3A%20Parsing%20Binary%20from%20the%20TCP%20Layer&amp;url=http://my-ghost-blog.com/nodejs-parsing-binary-from-the-tcp-layer/"
+                        onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
+                        <span class="hidden">Twitter</span>
+                    </a>
+                    <a class="icon-facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://my-ghost-blog.com/nodejs-parsing-binary-from-the-tcp-layer/"
+                        onclick="window.open(this.href, 'facebook-share','width=580,height=296');return false;">
+                        <span class="hidden">Facebook</span>
+                    </a>
+                    <a class="icon-google-plus" href="https://plus.google.com/share?url=http://my-ghost-blog.com/nodejs-parsing-binary-from-the-tcp-layer/"
+                       onclick="window.open(this.href, 'google-plus-share', 'width=490,height=530');return false;">
+                        <span class="hidden">Google+</span>
+                    </a>
+                </section>
+
+            </footer>
+
+        
+
+    </article>
+
+</main>
+
+
+    <footer class="site-footer">
+        <a class="subscribe icon-feed" href="http://my-ghost-blog.com/rss/"><span class="tooltip">Subscribe!</span></a>
+        <div class="inner">
+             <section class="copyright">All content copyright <a href="http://my-ghost-blog.com/">refactoring.</a> &copy; 2014 &bull; All rights reserved.</section>
+             <section class="poweredby">Proudly published with <a class="icon-ghost" href="https://ghost.org">Ghost</a></section>
+        </div>
+    </footer>
+
+    
+    <script src="../public/jquery.js?v=af08e5c30f"></script>
+
+    
+    <script type="text/javascript" src="../assets/js/jquery.fitvids.js?v=af08e5c30f"></script>
+    <script type="text/javascript" src="../assets/js/index.js?v=af08e5c30f"></script>
+
+</body>
+</html>

@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    
+    <title>refactoring.</title>
+    <meta name="description" content="my code && my life" />
+
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="shortcut icon" href="favicon.ico">
+
+    
+    <link rel="stylesheet" type="text/css" href="assets/css/screen.css?v=af08e5c30f" />
+    <link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Noto+Serif:400,700,400italic|Open+Sans:700,400" />
+
+    
+    <meta name="generator" content="Ghost 0.4" />
+<link rel="alternate" type="application/rss+xml" title="refactoring." href="rss/index.html">
+<link rel="canonical" href="http://my-ghost-blog.com/" />
+</head>
+<body class="home-template">
+
+    
+    
+
+
+
+
+<header class="site-head" style="background-image: url(content/images/2014/Jul/ar_hungry_big.jpg)">
+    <div class="vertical">
+        <div class="site-head-content inner">
+            
+            <h1 class="blog-title">refactoring.</h1>
+            <h2 class="blog-description">my code &amp;&amp; my life</h2>
+        </div>
+    </div>
+</header>
+
+
+<main class="content" role="main">
+
+    
+    
+
+    <article class="post">
+        <header class="post-header">
+            <span class="post-meta"><time datetime="2014-06-26">26 Jun 2014</time> </span>
+            <h2 class="post-title"><a href="nodejs-parsing-binary-from-the-tcp-layer/index.html">NodeJS: Parsing Binary from the TCP Layer</a></h2>
+
+        </header>
+        <section class="post-excerpt">
+            <p>For a job recently, I was asked to create a bridge server that translated the protocol of an old legacy server to a new HTML5 client, and vice versa. The old protocol was built upon C# structs, and the server was communicating in binary on the TCP layer. The new&hellip;</p>
+        </section>
+    </article>
+
+    
+
+    <article class="post">
+        <header class="post-header">
+            <span class="post-meta"><time datetime="2014-06-18">18 Jun 2014</time> </span>
+            <h2 class="post-title"><a href="more-angularjs-testing-end-to-end-tests-with-protractor/index.html">More AngularJS testing: end-to-end tests with protractor</a></h2>
+
+        </header>
+        <section class="post-excerpt">
+            <p>End-to-end tests exist to have a method of programatically testing an actual user's experience in your app. The user never cares how much the pieces of your app are decoupled. The user cares that he or she loaded the page and did all of the things he or she expected&hellip;</p>
+        </section>
+    </article>
+
+    
+
+    <article class="post">
+        <header class="post-header">
+            <span class="post-meta"><time datetime="2014-06-13">13 Jun 2014</time> </span>
+            <h2 class="post-title"><a href="testing-nglazy-unit-tests-with-karma-amp-jasmine/index.html">Testing ngLazy: unit tests with karma &amp; jasmine</a></h2>
+
+        </header>
+        <section class="post-excerpt">
+            <p>Excited as I am to have implemented my lazy load and infinite scroll modular AngularJS library, ngLazy, I considered it pretty fragile because it was lacking a test suite. And yes, I'm admitting that this was not developed in the style of TDD. I would like to make that a&hellip;</p>
+        </section>
+    </article>
+
+    
+
+    <article class="post">
+        <header class="post-header">
+            <span class="post-meta"><time datetime="2014-06-10">10 Jun 2014</time> </span>
+            <h2 class="post-title"><a href="configuring-karma-for-angularjs-testing/index.html">Configuring karma for AngularJS testing</a></h2>
+
+        </header>
+        <section class="post-excerpt">
+            <p>I've been working on the test suite for ngLazy, and I thought it could be helpful to document some notes that seem relevant after setting up karma in this project. First thing's first:      npm install karma followed by:      karma init The karma tests are configured via a file that is&hellip;</p>
+        </section>
+    </article>
+
+    
+
+    <article class="post">
+        <header class="post-header">
+            <span class="post-meta"><time datetime="2014-06-03">03 Jun 2014</time> </span>
+            <h2 class="post-title"><a href="nglazy-making-an-angularjs-library/index.html">ngLazy: Making an AngularJS Library</a></h2>
+
+        </header>
+        <section class="post-excerpt">
+            <p>In pursuit of re-usablity A little while ago, I wrote a blog post about implementing a lazy load / infinite scroll in an app I was hacking on. The logic was spread between a controller and directive, and it needed decoupling. It couldn't be re-used without copying a ton of code&hellip;</p>
+        </section>
+    </article>
+
+    
+
+    <article class="post">
+        <header class="post-header">
+            <span class="post-meta"><time datetime="2014-05-12">12 May 2014</time> </span>
+            <h2 class="post-title"><a href="implementing-a-lazy-load-and-infinite-scroll-in-angularjs/index.html">implementing a lazy load and infinite scroll in AngularJS</a></h2>
+
+        </header>
+        <section class="post-excerpt">
+            <p>I am planning to refactor this into a more simple, modular directive, but before doing so, I just want to describe how I approached implementing a lazy load and infinite scroll on a project I picked up. It's a dashboard for tracking individual and group progress. (Sidenote: I also would&hellip;</p>
+        </section>
+    </article>
+
+    
+
+    <article class="post">
+        <header class="post-header">
+            <span class="post-meta"><time datetime="2014-04-01">01 Apr 2014</time> </span>
+            <h2 class="post-title"><a href="stylr-making-a-mobile-app-with-angularjs/index.html">Stylr: making a mobile app with AngularJS</a></h2>
+
+        </header>
+        <section class="post-excerpt">
+            <p>{% vimeo 99956183 %} Stylr is a mobile app that, for lack of a better explanation, is probably best referred to as "Tinder for fashion". My friend Brendon Verissimo and I conceived and developed it. The idea behind the app is that users can tell the app about their tastes, and the&hellip;</p>
+        </section>
+    </article>
+
+    
+
+    <article class="post">
+        <header class="post-header">
+            <span class="post-meta"><time datetime="2014-03-03">03 Mar 2014</time> </span>
+            <h2 class="post-title"><a href="that-time-when-our-mocha-tests-passed-consistently-every-second-time-that-we-ran-them/index.html">that time when our mocha tests passed consistently... every second time that we ran them</a></h2>
+
+        </header>
+        <section class="post-excerpt">
+            <p>We had a thorough suite of tests for our node/express server and mongodb test database, and we were delighted that they were putting our app through the paces. We were even happier that we'd tweaked our app's code until all of them passed. But we were befuddled when the&hellip;</p>
+        </section>
+    </article>
+
+    
+
+    <article class="post">
+        <header class="post-header">
+            <span class="post-meta"><time datetime="2014-02-28">28 Feb 2014</time> </span>
+            <h2 class="post-title"><a href="man-vs-s3/index.html">Man Vs. S3</a></h2>
+
+        </header>
+        <section class="post-excerpt">
+            <p>Solution Gist: https://gist.github.com/adrichman/e550885f6011f37d6bd3 For more hours than I like to admit, I struggled to free ourselves from AWS's S3 SDK. We were trying to facilitate direct uploads from our client to our S3 bucket, but without exposing any credentials that would need to be present&hellip;</p>
+        </section>
+    </article>
+
+    
+
+    <article class="post">
+        <header class="post-header">
+            <span class="post-meta"><time datetime="2014-02-02">02 Feb 2014</time> </span>
+            <h2 class="post-title"><a href="super-bowl-sunday-morning-review-of-toy-problems/index.html">super bowl sunday, morning review of toy problems</a></h2>
+
+        </header>
+        <section class="post-excerpt">
+            <p>Sundays during my time in San Francisco have revealed a fairly cemented routine of their own. They are the one day I have in a week in which I'm not expected to be at the school on 5th and market. Nonetheless, I usually get a full day's worth of studying&hellip;</p>
+        </section>
+    </article>
+
+    
+
+    <article class="post">
+        <header class="post-header">
+            <span class="post-meta"><time datetime="2014-01-13">13 Jan 2014</time> </span>
+            <h2 class="post-title"><a href="traversing-the-binary-data-tree-called-life/index.html">traversing the binary data tree... called life</a></h2>
+
+        </header>
+        <section class="post-excerpt">
+            <p>This morning I have a quick moment for a short reflection on what we've learned so far at Hack Reactor, but my mind's presence is challenged by big changes back in NYC. While I am prepping myself for our weekly assessment (probably a prompt to recreate the solutions to problems&hellip;</p>
+        </section>
+    </article>
+
+    
+
+    <article class="post">
+        <header class="post-header">
+            <span class="post-meta"><time datetime="2014-01-12">12 Jan 2014</time> </span>
+            <h2 class="post-title"><a href="javascript-data-structure-instantiation-patterns/index.html">Javascript Data-Structure Instantiation Patterns</a></h2>
+
+        </header>
+        <section class="post-excerpt">
+            <p>earlier this week I learned about the many ways to instantiate a data-structure in javascript. here's what I took away, along with with some examples: functional: a single function that instantiates an empty instance of an object that we will store data on. we will access the data with functions&hellip;</p>
+        </section>
+    </article>
+
+    
+
+    <article class="post">
+        <header class="post-header">
+            <span class="post-meta"><time datetime="2014-01-09">09 Jan 2014</time> </span>
+            <h2 class="post-title"><a href="day-3-review/index.html">day 3 review</a></h2>
+
+        </header>
+        <section class="post-excerpt">
+            <p>Today we began with a timed self-assessment (45-min) in which we had to re-implement some of the familiar functions in the UnderscoreJS library from scratch: a recursive function that accepts a dom node and returns true if it finds 5 or more divs in itself and child nodes (no jQuery&hellip;</p>
+        </section>
+    </article>
+
+    
+
+    <article class="post">
+        <header class="post-header">
+            <span class="post-meta"><time datetime="2014-01-05">05 Jan 2014</time> </span>
+            <h2 class="post-title"><a href="taco-count/index.html">taco count</a></h2>
+
+        </header>
+        <section class="post-excerpt">
+            <p>after &lt;24hrs: 4 also, cracked a rib, I'm pretty sure&hellip;</p>
+        </section>
+    </article>
+
+    
+
+    <article class="post">
+        <header class="post-header">
+            <span class="post-meta"><time datetime="2014-01-04">04 Jan 2014</time> </span>
+            <h2 class="post-title"><a href="planes-trains-and-automobiles/index.html">planes, trains and automobiles</a></h2>
+
+        </header>
+        <section class="post-excerpt">
+            <p>Getting this journey off on the right foot...  the right foot being the one that slipped on the stairs at 5am and dealt my lower back and kidneys a blow to remember. This after a night spent trying to find a way out of NYC in time to arrive in&hellip;</p>
+        </section>
+    </article>
+
+    
+
+    <article class="post">
+        <header class="post-header">
+            <span class="post-meta"><time datetime="2014-01-03">03 Jan 2014</time> </span>
+            <h2 class="post-title"><a href="code-review/index.html">code review</a></h2>
+
+        </header>
+        <section class="post-excerpt">
+            <p>In the midst of the emotional gauntlet of the recent past, I think I actually managed to learn some stuff. I am reminiscing about my first day at AD60 in October. It took almost the entire day to get set up with 4 Windows IE VirtualBoxes because our client needed&hellip;</p>
+        </section>
+    </article>
+
+    
+
+    <article class="post">
+        <header class="post-header">
+            <span class="post-meta"><time datetime="2014-01-03">03 Jan 2014</time> </span>
+            <h2 class="post-title"><a href="tightroping/index.html">tightroping</a></h2>
+
+        </header>
+        <section class="post-excerpt">
+            <p>##Pack it up, Pack it in. Let me begin... Damn. This last week or so of my life has caught me feeling exceptionally fragile.      I have been struggling to manage responsibilities I took on as they all culminate in the same moment. While I agressively marketed the studio with Google&hellip;</p>
+        </section>
+    </article>
+
+    
+
+    <article class="post">
+        <header class="post-header">
+            <span class="post-meta"><time datetime="2013-11-11">11 Nov 2013</time> </span>
+            <h2 class="post-title"><a href="hello-world/index.html">hello, world</a></h2>
+
+        </header>
+        <section class="post-excerpt">
+            <p>It's been a minute since I addressed my friends at large, which is probably a good thing, because what friend enjoys hearing about a friend via broadcast? Since announcing that my studio The Bucket NYC is on the market to be leased or bought, I've received a lot of friendly&hellip;</p>
+        </section>
+    </article>
+
+    
+
+    <article class="post">
+        <header class="post-header">
+            <span class="post-meta"><time datetime="2013-10-14">14 Oct 2013</time> </span>
+            <h2 class="post-title"><a href="and-i-should-mention/index.html">and I should mention...</a></h2>
+
+        </header>
+        <section class="post-excerpt">
+            <p>I am a little excited to let time turn this blog into some kind of measuring stick for my progress in this new realm (for me). But it needs some catch-up from the last six+ months that started me down this path. I am going to get on that by&hellip;</p>
+        </section>
+    </article>
+
+    
+
+    <article class="post">
+        <header class="post-header">
+            <span class="post-meta"><time datetime="2013-10-14">14 Oct 2013</time> </span>
+            <h2 class="post-title"><a href="winning-the-battle-but/index.html">winning the battle but...</a></h2>
+
+        </header>
+        <section class="post-excerpt">
+            <p>battled for an embarrasingly long time with this problem for coderbyte:   Using the JavaScript language, have the function PermutationStep(num) take the num parameter   being passed and return the next number greater than num using the same digits. For example:   if num is 123 return 132, if it's 12453 return&hellip;</p>
+        </section>
+    </article>
+
+    
+
+    
+    <nav class="pagination" role="navigation">
+    
+    <span class="page-number">Page 1 of 1</span>
+    
+</nav>
+
+</main>
+
+    <footer class="site-footer">
+        <a class="subscribe icon-feed" href="http://my-ghost-blog.com/rss/"><span class="tooltip">Subscribe!</span></a>
+        <div class="inner">
+             <section class="copyright">All content copyright <a href="http://my-ghost-blog.com/">refactoring.</a> &copy; 2014 &bull; All rights reserved.</section>
+             <section class="poweredby">Proudly published with <a class="icon-ghost" href="https://ghost.org">Ghost</a></section>
+        </div>
+    </footer>
+
+    
+    <script src="public/jquery.js?v=af08e5c30f"></script>
+
+    
+    <script type="text/javascript" src="assets/js/jquery.fitvids.js?v=af08e5c30f"></script>
+    <script type="text/javascript" src="assets/js/index.js?v=af08e5c30f"></script>
+
+</body>
+</html>

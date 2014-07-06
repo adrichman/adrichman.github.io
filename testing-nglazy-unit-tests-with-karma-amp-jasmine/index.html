@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    
+    <title>Testing ngLazy: unit tests with karma &amp; jasmine</title>
+    <meta name="description" content="" />
+
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="shortcut icon" href="../favicon.ico">
+
+    
+    <link rel="stylesheet" type="text/css" href="../assets/css/screen.css?v=af08e5c30f" />
+    <link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Noto+Serif:400,700,400italic|Open+Sans:700,400" />
+
+    
+    <meta name="generator" content="Ghost 0.4" />
+<link rel="alternate" type="application/rss+xml" title="refactoring." href="../rss/index.html">
+<link rel="canonical" href="http://my-ghost-blog.com/testing-nglazy-unit-tests-with-karma-amp-jasmine/" />
+</head>
+<body class="post-template">
+
+    
+    
+
+
+
+<main class="content" role="main">
+
+    <article class="post">
+
+        
+        <header class="post-header">
+            <a class="blog-logo" href="http://my-ghost-blog.com">
+                
+                    <span class="blog-title">refactoring.</span>
+                
+            </a>
+        </header>
+
+        
+        
+
+            <span class="post-meta"><time datetime="2014-06-13">13 Jun 2014</time> </span>
+
+            <h1 class="post-title">Testing ngLazy: unit tests with karma &amp; jasmine</h1>
+
+            <section class="post-content">
+                <p>Excited as I am to have implemented my lazy load and infinite scroll <a href="https://github.com/adrichman/ngLazy">modular AngularJS library, ngLazy</a>, I considered it pretty fragile because it was lacking a test suite. And yes, I'm admitting that this was not developed in the style of TDD. I would like to make that a priority for the next project!</p>
+
+<p>My concerns had little to do with the library's ability to handle edge cases, and much more to do with a strong desire to open up my code to the open source community. I didn't feel it was responsible to do this -- to solicit other people for their time and thoughtfulness -- without providing some automated indicator that the library has not been broken by a change that is made. So, I got down to work and wrote some tests.</p>
+
+<p>The recommended engine for unit testing an AngularJS app is karma, and by default, it uses the Jasmine testing framework. <code>npm install karma</code>, followed by <code>karma init</code> got me moving pretty quickly, but there were <a href="http://127.0.0.1:2368/blog/2014/06/10/configuring-karma-for-angularjs-testing/">configuration kinks that took a minute to iron out</a>.</p>
+
+<h3 id="knowingwhatquestionstoask">Knowing what questions to ask</h3>
+
+<p>A big question was raised before I could begin, though. How was I going to adequately demonstrate and test this library, of which there was but only a few features packed into a module, without a standalone purpose? My solution was to create a demonstration app for the features of the library, and in doing so, integrate my test suite with the demo. The result - <a href="http://ng-Lazy.com">http://ng-Lazy.com</a>. My expectations are that this app will be integrated in the development cycle for further iterations on the library, and that the tests will be run against it.</p>
+
+<p>Unit tests should be as decoupled from all pieces of an application as possible, in order to only test the operation of the single feature being tested. So this begged the question, what are the elements of this feature whose functionality needs to be varified in order to ensure nothing has been broken? Understanding which concepts to test was as challenging as figuring out how to test them. This would probably have been easier if the library had been developed in a TDD style!</p>
+
+<p>Regardless, I combed through the pieces of ngLazy that make it tick and came away with some key assertions:</p>
+
+<ul>
+<li><p>the lazyLoader Factory should have the proper methods</p></li>
+<li><p>it should have a div with id 'bottom'</p></li>
+<li><p>when repeated items are rendered, the bottom div should follow the last item</p></li>
+<li><p>it should have a scope with keys for every lazy-load attribute</p></li>
+</ul>
+
+<p>Now that I had some guidelines to shoot for, I needed to mock up their execution.</p>
+
+<p>Some vital parts of mocking the Angular environment in which the piece you are testing operates:</p>
+
+<ul>
+<li>require the module being tested before each test runs</li>
+<li>mock a new $scope from the rootScope constructor, and</li>
+<li>inject depedencies via the $injector provider:</li>
+</ul>
+
+<pre><code>  beforeEach(module('ngLazy'));
+  beforeEach(inject(['$rootScope','$controller','$injector',function($rootScope, $controller, $injector){
+    lazyLoader = $injector.get('lazyLoader');
+    $scope = $rootScope.$new();
+  }]));
+</code></pre>
+
+<ul>
+<li>with lazyLoader being my module's factory, now I can check that some good-intentioned contributor doesn't break its backwards compatibility:</li>
+</ul>
+
+<pre><code>  it('should have a lazyLoader Factory', function(){
+    expect(lazyLoader).not.toBe(undefined);
+  });
+
+  it('the lazyLoader Factory should have the proper methods', function(){
+    expect(lazyLoader.configure).not.toBe(undefined);
+    expect(lazyLoader.getData).not.toBe(undefined);
+    expect(lazyLoader.load).not.toBe(undefined);
+  });
+</code></pre>
+
+<h3 id="testingadirective">Testing a directive</h3>
+
+<p>In order to test the directive that this module provides, we need to mock an angular element that invokes it, and give it some controller data to validate the features are functioning.</p>
+
+<p><strong>NOTE:</strong> if your directive has isolate scope whose properties you will be testing, use the isolateScope() method on your angular element, AFTER you have invoked <code>$compile</code> on it with a scope.</p>
+
+<pre><code>      describe('Directive', function(){
+        beforeEach(module('ngLazy'));
+
+        var element, $scope, list, bottom, elementScope;
+
+        beforeEach(inject(['$rootScope','$compile', function($rootScope, $compile){
+          $scope = $rootScope.$new();
+          $scope.data = {};
+          $scope.data.list = [
+            "item1",
+            "item2",
+            "item3",
+            "item4",
+            "item5"
+          ];
+          element = angular.element(
+          '&lt;lazy-load' +
+            ' lazy-data="data"' +
+            ' lazy-data-service="dataService"' +
+            ' lazy-fetch-method="getList"' +
+            ' lazy-range=" {{ range }}"' +
+            ' lazy-data-collection-key="list"' +
+            ' lazy-data-keys="[\'list\']"' +
+            ' lazy-start-delay="{{ startDelay }}"' +
+            ' lazy-append-delay="{{ appendDelay }}"' +
+            ' lazy-spinner-color="{{ spinnerColor }}"&gt;' +
+          '&lt;div ng-repeat="item in data.list"&gt;' +
+            '&lt;h4&gt;{{ item }}&lt;/h4&gt;' +
+          '&lt;/div&gt;' +
+          '&lt;/lazy-load&gt;');
+
+          $scope.$apply();
+          $compile(element)($scope);
+
+          elementScope = element.isolateScope();
+        }]));
+
+        it('should not break ng-repeat', function(){
+          $scope.$digest();
+          list = element.find('h4');
+          expect(list.length).toBe(5);
+        })
+
+        it('should have a div with id=\'bottom\'', function(){
+          bottom = element.find('div')[3];
+          expect(bottom.id).toBe('lazy-bottom');
+        })
+
+        it('when repeated items are rendered, the bottom div should follow the last item', function(){
+          $scope.$digest();
+          bottom = element.find('div')[8];
+          expect(bottom.id).toBe('lazy-bottom');
+        })
+
+        it('should have a scope with keys for every lazy-load attribute', function(){
+          expect(elementScope.lazyData).not.toBe(undefined);
+          expect(elementScope.lazyDataCollectionKey).not.toBe(undefined);
+          expect(elementScope.lazyDataKeys).not.toBe(undefined);
+          expect(elementScope.lazyFetchMethod).not.toBe(undefined);
+          expect(elementScope.lazyRange).not.toBe(undefined);
+          expect(elementScope.lazySpinnerColor).not.toBe(undefined);
+          expect(elementScope.lazyAppendDelay).not.toBe(undefined);
+          expect(elementScope.lazyStartDelay).not.toBe(undefined);
+          expect(elementScope.lazyDataService).toBe('dataService');
+        });
+
+      })
+
+    })
+</code></pre>
+
+<p>I swear, I wrote these tests and now I sleep much better a night. Next up, I'll try my hand at some notes about end-to-end testing <a href="http://ng-Lazy.com">ngLazy</a>.</p>
+            </section>
+
+            <footer class="post-footer">
+
+                <section class="author">
+                    <h4>Adam D Richman</h4>
+                    <p>Food-and-Music-loving Software Engineer</p>
+                    <ul class="author-meta clearfix">
+                        <li>San Francisco, CA</li>
+                        <li><a href="http://www.adamrichman.com">http://www.adamrichman.com</a></li>
+                    </ul>
+                </section>
+
+                <section class="share">
+                    <h4>Share this post</h4>
+                    <a class="icon-twitter" href="https://twitter.com/share?text=Testing%20ngLazy%3A%20unit%20tests%20with%20karma%20%26amp%3B%20jasmine&amp;url=http://my-ghost-blog.com/testing-nglazy-unit-tests-with-karma-amp-jasmine/"
+                        onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
+                        <span class="hidden">Twitter</span>
+                    </a>
+                    <a class="icon-facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://my-ghost-blog.com/testing-nglazy-unit-tests-with-karma-amp-jasmine/"
+                        onclick="window.open(this.href, 'facebook-share','width=580,height=296');return false;">
+                        <span class="hidden">Facebook</span>
+                    </a>
+                    <a class="icon-google-plus" href="https://plus.google.com/share?url=http://my-ghost-blog.com/testing-nglazy-unit-tests-with-karma-amp-jasmine/"
+                       onclick="window.open(this.href, 'google-plus-share', 'width=490,height=530');return false;">
+                        <span class="hidden">Google+</span>
+                    </a>
+                </section>
+
+            </footer>
+
+        
+
+    </article>
+
+</main>
+
+
+    <footer class="site-footer">
+        <a class="subscribe icon-feed" href="http://my-ghost-blog.com/rss/"><span class="tooltip">Subscribe!</span></a>
+        <div class="inner">
+             <section class="copyright">All content copyright <a href="http://my-ghost-blog.com/">refactoring.</a> &copy; 2014 &bull; All rights reserved.</section>
+             <section class="poweredby">Proudly published with <a class="icon-ghost" href="https://ghost.org">Ghost</a></section>
+        </div>
+    </footer>
+
+    
+    <script src="../public/jquery.js?v=af08e5c30f"></script>
+
+    
+    <script type="text/javascript" src="../assets/js/jquery.fitvids.js?v=af08e5c30f"></script>
+    <script type="text/javascript" src="../assets/js/index.js?v=af08e5c30f"></script>
+
+</body>
+</html>

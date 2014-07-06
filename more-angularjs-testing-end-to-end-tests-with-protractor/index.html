@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    
+    <title>More AngularJS testing: end-to-end tests with protractor</title>
+    <meta name="description" content="" />
+
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="shortcut icon" href="../favicon.ico">
+
+    
+    <link rel="stylesheet" type="text/css" href="../assets/css/screen.css?v=af08e5c30f" />
+    <link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Noto+Serif:400,700,400italic|Open+Sans:700,400" />
+
+    
+    <meta name="generator" content="Ghost 0.4" />
+<link rel="alternate" type="application/rss+xml" title="refactoring." href="../rss/index.html">
+<link rel="canonical" href="http://my-ghost-blog.com/more-angularjs-testing-end-to-end-tests-with-protractor/" />
+</head>
+<body class="post-template">
+
+    
+    
+
+
+
+<main class="content" role="main">
+
+    <article class="post">
+
+        
+        <header class="post-header">
+            <a class="blog-logo" href="http://my-ghost-blog.com">
+                
+                    <span class="blog-title">refactoring.</span>
+                
+            </a>
+        </header>
+
+        
+        
+
+            <span class="post-meta"><time datetime="2014-06-18">18 Jun 2014</time> </span>
+
+            <h1 class="post-title">More AngularJS testing: end-to-end tests with protractor</h1>
+
+            <section class="post-content">
+                <p>End-to-end tests exist to have a method of programatically testing an actual user's experience in your app. The user never cares how much the pieces of your app are decoupled. The user cares that he or she loaded the page and did all of the things he or she expected to be able to do, without unexpected breaking. We can do this in AngularJS with protractor. Protractor will launch a browser and act just as we expect a user to behave (if we give it the right instructions). There are a few lesser documented tricks in the api that are vital to doing this properly, and I couldn't have truly tested <a href="http://ng-Lazy.com">ngLazy</a> without them.</p>
+
+<p><strong>FYI:</strong> Most of what I know about testing with protractor, <a href="http://www.ng-newsletter.com/posts/practical-protractor.html">I learned here in the ng-newsletter</a>. You will find very detailed instructions on setting it up, and learn a little about the technology protractor is built upon (Selenium's Webdriver).</p>
+
+<p>Using grunt to build my project, and after installing via <code>npm install grunt-protractor-runner</code>, running my protractor e2e tests is as simple as <a href="http://127.0.0.1:2368/blog/2014/06/13/testing-nglazy-unit-tests-with-karma-and-jasmine/">running my karma unit tests</a>. One command, <code>grunt test</code>, and tests do the rest of the hard work.</p>
+
+<p>Protractor and Webdriver give you access to a <code>browser</code> object, through which you define the user's experience and behavior inside of your test.</p>
+
+<h3 id="spacetime">Space &amp; Time</h3>
+
+<p>I experienced a very confounding problem when writing my e2e tests, and it brought an interesting protractor feature to light. Because my module is dependent on various uses of angular's $timeout, I seemed unable to coordinate protractor's behavior without experiencing it timing out, or blowing through the tests at the improper times. I found the issues documented <a href="https://github.com/angular/protractor/issues/49">here</a> and this lead to the eventual solution to my problem:</p>
+
+<pre><code>browser.ignoreSynchronization = true;
+</code></pre>
+
+<p>When using <code>ignoreSynchonization</code> before running my tests, I'm able to instruct the browser to observe sleep timers at various times, and can verify that the correct items are on screen, or hidden, at the appropriate times.</p>
+
+<p>Because there are several phases during the use of ngLazy in which we can expect different things from our view, I needed a way to allow for Protractor to run different tests during each phase of the cycle. This was fairly easy once I made use of the method:</p>
+
+<pre><code>browser.sleep()
+</code></pre>
+
+<p>Probably the primary feature of ngLazy is reliant on the user scrolling to the bottom of the list, in order to trigger ngLazy to begin appending more items to the dom. This behavior was also pretty trivial to recreate in protractor! The <code>executeScript</code> method provides an api that takes DOM API arguments and executes them, while returning a promise. When the promise resolves, proceed with more instructions:</p>
+
+<pre><code>browser.executeScript('window.scrollTo(0,' + 800 + ');').then(function(){  
+  browser.sleep(2000);
+
+  // range is defined previously
+  expect(element.all(by.css('.ng-binding')).count()).toEqual(range * 2);
+})
+</code></pre>
+
+<h3 id="assertyourself">Assert yourself</h3>
+
+<p>I'll include the current family of tests below, to demonstrate the kind of integrated tests I'm running. The assertions include: <br />
+* it should immediately display a spinner
+* it should have a spinner-color that matches the configuration
+* it should have as many ng-repeated items as the scope indicates
+* it should have an element in the DOM that represents the bottom of the list
+* it should add elements to the DOM when it scrolls to the bottom of the list</p>
+
+<pre><code>describe("ngLazy-demo", function(){
+  browser.driver.manage().window().maximize();
+  browser.get('/#');
+  browser.ignoreSynchronization = true;
+
+  describe("index", function () {
+
+    it("should display the correct title", function(){
+      expect(browser.getTitle()).toBe('ngLazy-Demo');
+    });
+
+    it("should have a lazy-load element", function(){
+      expect(element(by.css('lazy-load')).isPresent()).toBe(true);
+    });
+
+  });
+
+  var range;
+  describe("lazy-load directive", function(){
+    it ("should immediately display a spinner", function(){
+      expect(element(by.css('.ng-hide')).isPresent()).toBe(false);
+    });
+
+    it("should have a spinner-color that matches the configuration", function(){
+      var color;
+      var loadingWidget = browser.findElement(by.css('.loading-widget'));
+      loadingWidget.getAttribute('style').then(function(color){
+        // ugly way of getting the color string from the directive
+        color = (((color
+                .split('border-color:')[1])
+                .split(';')[0])
+                .split('transparent ')[1]).trim()
+                .split(' rgb')[0];
+        var spinnerElement = browser.findElement(by.model('spinnerColor'));
+        spinnerElement.getAttribute('value').then(function(val){
+          expect(color).toEqual(val);
+        })
+      })
+    })
+
+    it("should have as many ng-repeated items as the scope indicates", function(){
+      var rangeElement = browser.findElement(by.model('range'));
+      rangeElement.getAttribute('value').then(function(val){
+        browser.sleep(4000);
+        range = parseInt(val);
+        var repeats = element.all(by.css('.ng-binding')).count();
+        expect(repeats).toEqual(range);
+      });
+    });
+
+    it("should have an element in the DOM that represents the bottom of the list", function(){
+      expect(element(by.css('#lazy-bottom')).isPresent()).toBe(true);
+    });
+
+    it("should add elements to the DOM when it scrolls to the bottom of the list", function(){
+      browser.sleep(2000);
+      browser.executeScript('window.scrollTo(0,' + 800 + ');').then(function(){
+        browser.sleep(2000);
+        expect(element.all(by.css('.ng-binding')).count()).toEqual(range * 2);
+      })
+    })
+  });
+})
+</code></pre>
+
+<p>I am looking to fill out this suite with even more useful tests, so I welcome any suggestions! Please feel free to fork and pull request from the <a href="https://github.com/adrichman/ngLazy-demo">demo app's repo</a>.</p>
+            </section>
+
+            <footer class="post-footer">
+
+                <section class="author">
+                    <h4>Adam D Richman</h4>
+                    <p>Food-and-Music-loving Software Engineer</p>
+                    <ul class="author-meta clearfix">
+                        <li>San Francisco, CA</li>
+                        <li><a href="http://www.adamrichman.com">http://www.adamrichman.com</a></li>
+                    </ul>
+                </section>
+
+                <section class="share">
+                    <h4>Share this post</h4>
+                    <a class="icon-twitter" href="https://twitter.com/share?text=More%20AngularJS%20testing%3A%20end-to-end%20tests%20with%20protractor&amp;url=http://my-ghost-blog.com/more-angularjs-testing-end-to-end-tests-with-protractor/"
+                        onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
+                        <span class="hidden">Twitter</span>
+                    </a>
+                    <a class="icon-facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://my-ghost-blog.com/more-angularjs-testing-end-to-end-tests-with-protractor/"
+                        onclick="window.open(this.href, 'facebook-share','width=580,height=296');return false;">
+                        <span class="hidden">Facebook</span>
+                    </a>
+                    <a class="icon-google-plus" href="https://plus.google.com/share?url=http://my-ghost-blog.com/more-angularjs-testing-end-to-end-tests-with-protractor/"
+                       onclick="window.open(this.href, 'google-plus-share', 'width=490,height=530');return false;">
+                        <span class="hidden">Google+</span>
+                    </a>
+                </section>
+
+            </footer>
+
+        
+
+    </article>
+
+</main>
+
+
+    <footer class="site-footer">
+        <a class="subscribe icon-feed" href="http://my-ghost-blog.com/rss/"><span class="tooltip">Subscribe!</span></a>
+        <div class="inner">
+             <section class="copyright">All content copyright <a href="http://my-ghost-blog.com/">refactoring.</a> &copy; 2014 &bull; All rights reserved.</section>
+             <section class="poweredby">Proudly published with <a class="icon-ghost" href="https://ghost.org">Ghost</a></section>
+        </div>
+    </footer>
+
+    
+    <script src="../public/jquery.js?v=af08e5c30f"></script>
+
+    
+    <script type="text/javascript" src="../assets/js/jquery.fitvids.js?v=af08e5c30f"></script>
+    <script type="text/javascript" src="../assets/js/index.js?v=af08e5c30f"></script>
+
+</body>
+</html>

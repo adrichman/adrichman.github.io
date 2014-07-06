@@ -1,0 +1,1153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom" version="2.0"><channel><title><![CDATA[refactoring.]]></title><description><![CDATA[my code && my life]]></description><link>http://my-ghost-blog.com/</link><generator>Ghost v0.4.2</generator><lastBuildDate>Sun, 06 Jul 2014 21:37:52 GMT</lastBuildDate><atom:link href="http://my-ghost-blog.com/rss/" rel="self" type="application/rss+xml"/><ttl>60</ttl><item><title><![CDATA[NodeJS: Parsing Binary from the TCP Layer]]></title><description><![CDATA[<p>For a job recently, I was asked to create a bridge server that translated the protocol of an old legacy server to a new HTML5 client, and vice versa. The old protocol was built upon C# structs, and the server was communicating in binary on the TCP layer. The new client will be communicating in JSON messages via TCP over HTTP (aka web sockets).</p>
+
+<p>NodeJS comes nicely equipped with a module, <a href='http://nodejs.org/api/net.html' >net</a>,  for commuinicating via the TCP layer. Simply <code>require('net')</code> and you are now equipped to open a TCP socket. The module comes with a class Socket, and new socket connections can be instantiated when needed:</p>
+
+<pre><code>var tcpSock = require('net');  
+var client  = new tcpSock.Socket;  
+var socket  = client.connect(PORT, HOST);  
+</code></pre>
+
+<p>NodeJS also features a <a href='http://nodejs.org/api/buffer.html' >Buffer class</a>, that will assemble raw binary data packets into an array-like object that can contain only integers. One instance of the Buffer class represents a specific, fixed size memory allocation outside of the V8 heap. I use it to collect incoming data packets, as well as to properly assemble my outgoing binary data.</p>
+
+<pre><code>var buffer = new Buffer(0, 'hex');
+
+// listen for incoming data
+socket.on("data", function(data){
+
+    // a custom function for logging more readable binary
+    logDataStream(data)
+
+    // pack incoming data into the buffer
+    buffer = Buffer.concat([buffer, new Buffer(data, 'hex')]);
+})
+</code></pre>
+
+<p>The incoming binary was organized as C structs, and I am able to parse the data fairly easily using a great npm library called <a href='https://github.com/xdenser/node-struct' >node-struct</a>. The node-struct library allows the developer to define the structs in terms of javascript objects with strictly typed, pre-allocated fields. There are types for 8bit words through 32 bit, signed and unsigned, big and little endian. There are also fields for ascii and other encoded characters, as well as fields for other structs within structs. For example:  </p>
+
+<pre><code>var Struct = require('struct').Struct;
+
+function makeAndParsePersonFromBinary(buffer){  
+  var person = new Struct()
+                    .('word8', 'Sex')     // 0 or 1 for instance
+                    .('word32Ule', 'Age')
+                    .('chars','Name', 64);
+
+  person._setBuff(buffer);
+  return person;
+};
+
+var incomingPerson = makeAndParsePersonFromBinary(buffer);  
+</code></pre>
+
+<p>Once the struct has been seeded with the binary buffer, you can now access the values from the binary packets, properly parsed as fields on the struct:  </p>
+
+<pre><code>var personName = incomingPerson.get('Name');  
+</code></pre>
+
+<p>As you can probably see, this <a href='https://github.com/xdenser/node-struct' >node-struct</a> library is a very useful tool when working in NodeJS with binary streams that represent structs.</p>
+
+<p>The data is parsed and I'm ready to start working with it in my app.</p>
+
+<p>Sometimes I just want to see the raw ints come in and out. FWIW, here's how I'm logging my incoming and outgoing binary streams:  </p>
+
+<pre><code>function logDataStream(data){  
+  // log the binary data stream in rows of 8 bits
+  var print = "";
+  for (var i = 0; i &lt; data.length; i++) {
+    print += " " + data[i].toString(16);
+
+    // apply proper format for bits with value &lt; 16, observed as int tuples
+    if (data[i] &lt; 16) { print += "0"; }
+
+    // insert a line break after every 8th bit
+    if ((i + 1) % 8 === 0) {
+      print += '\n';
+    };
+  }
+
+  // log the stream
+  console.log(print);
+}
+</code></pre>]]></description><link>http://my-ghost-blog.com/nodejs-parsing-binary-from-the-tcp-layer/</link><guid isPermaLink="false">9157646c-26a7-488c-9025-59cd4ffe3f52</guid><dc:creator><![CDATA[Adam D Richman]]></dc:creator><pubDate>Thu, 26 Jun 2014 07:18:00 GMT</pubDate></item><item><title><![CDATA[More AngularJS testing: end-to-end tests with protractor]]></title><description><![CDATA[<p>End-to-end tests exist to have a method of programatically testing an actual user's experience in your app. The user never cares how much the pieces of your app are decoupled. The user cares that he or she loaded the page and did all of the things he or she expected to be able to do, without unexpected breaking. We can do this in AngularJS with protractor. Protractor will launch a browser and act just as we expect a user to behave (if we give it the right instructions). There are a few lesser documented tricks in the api that are vital to doing this properly, and I couldn't have truly tested <a href='http://ng-lazy.com/' >ngLazy</a> without them.</p>
+
+<p><strong>FYI:</strong> Most of what I know about testing with protractor, <a href='http://www.ng-newsletter.com/posts/practical-protractor.html' >I learned here in the ng-newsletter</a>. You will find very detailed instructions on setting it up, and learn a little about the technology protractor is built upon (Selenium's Webdriver).</p>
+
+<p>Using grunt to build my project, and after installing via <code>npm install grunt-protractor-runner</code>, running my protractor e2e tests is as simple as <a href='http://my-ghost-blog.com/blog/2014/06/13/testing-nglazy-unit-tests-with-karma-and-jasmine/' >running my karma unit tests</a>. One command, <code>grunt test</code>, and tests do the rest of the hard work.</p>
+
+<p>Protractor and Webdriver give you access to a <code>browser</code> object, through which you define the user's experience and behavior inside of your test.</p>
+
+<h3 id="spacetime">Space &amp; Time</h3>
+
+<p>I experienced a very confounding problem when writing my e2e tests, and it brought an interesting protractor feature to light. Because my module is dependent on various uses of angular's $timeout, I seemed unable to coordinate protractor's behavior without experiencing it timing out, or blowing through the tests at the improper times. I found the issues documented <a href='https://github.com/angular/protractor/issues/49' >here</a> and this lead to the eventual solution to my problem:</p>
+
+<pre><code>browser.ignoreSynchronization = true;
+</code></pre>
+
+<p>When using <code>ignoreSynchonization</code> before running my tests, I'm able to instruct the browser to observe sleep timers at various times, and can verify that the correct items are on screen, or hidden, at the appropriate times.</p>
+
+<p>Because there are several phases during the use of ngLazy in which we can expect different things from our view, I needed a way to allow for Protractor to run different tests during each phase of the cycle. This was fairly easy once I made use of the method:</p>
+
+<pre><code>browser.sleep()
+</code></pre>
+
+<p>Probably the primary feature of ngLazy is reliant on the user scrolling to the bottom of the list, in order to trigger ngLazy to begin appending more items to the dom. This behavior was also pretty trivial to recreate in protractor! The <code>executeScript</code> method provides an api that takes DOM API arguments and executes them, while returning a promise. When the promise resolves, proceed with more instructions:</p>
+
+<pre><code>browser.executeScript('window.scrollTo(0,' + 800 + ');').then(function(){  
+  browser.sleep(2000);
+
+  // range is defined previously
+  expect(element.all(by.css('.ng-binding')).count()).toEqual(range * 2);
+})
+</code></pre>
+
+<h3 id="assertyourself">Assert yourself</h3>
+
+<p>I'll include the current family of tests below, to demonstrate the kind of integrated tests I'm running. The assertions include: <br />
+* it should immediately display a spinner
+* it should have a spinner-color that matches the configuration
+* it should have as many ng-repeated items as the scope indicates
+* it should have an element in the DOM that represents the bottom of the list
+* it should add elements to the DOM when it scrolls to the bottom of the list</p>
+
+<pre><code>describe("ngLazy-demo", function(){
+  browser.driver.manage().window().maximize();
+  browser.get('/#');
+  browser.ignoreSynchronization = true;
+
+  describe("index", function () {
+
+    it("should display the correct title", function(){
+      expect(browser.getTitle()).toBe('ngLazy-Demo');
+    });
+
+    it("should have a lazy-load element", function(){
+      expect(element(by.css('lazy-load')).isPresent()).toBe(true);
+    });
+
+  });
+
+  var range;
+  describe("lazy-load directive", function(){
+    it ("should immediately display a spinner", function(){
+      expect(element(by.css('.ng-hide')).isPresent()).toBe(false);
+    });
+
+    it("should have a spinner-color that matches the configuration", function(){
+      var color;
+      var loadingWidget = browser.findElement(by.css('.loading-widget'));
+      loadingWidget.getAttribute('style').then(function(color){
+        // ugly way of getting the color string from the directive
+        color = (((color
+                .split('border-color:')[1])
+                .split(';')[0])
+                .split('transparent ')[1]).trim()
+                .split(' rgb')[0];
+        var spinnerElement = browser.findElement(by.model('spinnerColor'));
+        spinnerElement.getAttribute('value').then(function(val){
+          expect(color).toEqual(val);
+        })
+      })
+    })
+
+    it("should have as many ng-repeated items as the scope indicates", function(){
+      var rangeElement = browser.findElement(by.model('range'));
+      rangeElement.getAttribute('value').then(function(val){
+        browser.sleep(4000);
+        range = parseInt(val);
+        var repeats = element.all(by.css('.ng-binding')).count();
+        expect(repeats).toEqual(range);
+      });
+    });
+
+    it("should have an element in the DOM that represents the bottom of the list", function(){
+      expect(element(by.css('#lazy-bottom')).isPresent()).toBe(true);
+    });
+
+    it("should add elements to the DOM when it scrolls to the bottom of the list", function(){
+      browser.sleep(2000);
+      browser.executeScript('window.scrollTo(0,' + 800 + ');').then(function(){
+        browser.sleep(2000);
+        expect(element.all(by.css('.ng-binding')).count()).toEqual(range * 2);
+      })
+    })
+  });
+})
+</code></pre>
+
+<p>I am looking to fill out this suite with even more useful tests, so I welcome any suggestions! Please feel free to fork and pull request from the <a href='https://github.com/adrichman/ngLazy-demo' >demo app's repo</a>.</p>]]></description><link>http://my-ghost-blog.com/more-angularjs-testing-end-to-end-tests-with-protractor/</link><guid isPermaLink="false">afba267b-ccbd-4fb6-8d21-e796c9f813c4</guid><dc:creator><![CDATA[Adam D Richman]]></dc:creator><pubDate>Thu, 19 Jun 2014 05:52:00 GMT</pubDate></item><item><title><![CDATA[Testing ngLazy: unit tests with karma &amp; jasmine]]></title><description><![CDATA[<p>Excited as I am to have implemented my lazy load and infinite scroll <a href='https://github.com/adrichman/ngLazy' >modular AngularJS library, ngLazy</a>, I considered it pretty fragile because it was lacking a test suite. And yes, I'm admitting that this was not developed in the style of TDD. I would like to make that a priority for the next project!</p>
+
+<p>My concerns had little to do with the library's ability to handle edge cases, and much more to do with a strong desire to open up my code to the open source community. I didn't feel it was responsible to do this -- to solicit other people for their time and thoughtfulness -- without providing some automated indicator that the library has not been broken by a change that is made. So, I got down to work and wrote some tests.</p>
+
+<p>The recommended engine for unit testing an AngularJS app is karma, and by default, it uses the Jasmine testing framework. <code>npm install karma</code>, followed by <code>karma init</code> got me moving pretty quickly, but there were <a href='http://my-ghost-blog.com/blog/2014/06/10/configuring-karma-for-angularjs-testing/' >configuration kinks that took a minute to iron out</a>.</p>
+
+<h3 id="knowingwhatquestionstoask">Knowing what questions to ask</h3>
+
+<p>A big question was raised before I could begin, though. How was I going to adequately demonstrate and test this library, of which there was but only a few features packed into a module, without a standalone purpose? My solution was to create a demonstration app for the features of the library, and in doing so, integrate my test suite with the demo. The result - <a href='http://ng-lazy.com/' >http://ng-Lazy.com</a>. My expectations are that this app will be integrated in the development cycle for further iterations on the library, and that the tests will be run against it.</p>
+
+<p>Unit tests should be as decoupled from all pieces of an application as possible, in order to only test the operation of the single feature being tested. So this begged the question, what are the elements of this feature whose functionality needs to be varified in order to ensure nothing has been broken? Understanding which concepts to test was as challenging as figuring out how to test them. This would probably have been easier if the library had been developed in a TDD style!</p>
+
+<p>Regardless, I combed through the pieces of ngLazy that make it tick and came away with some key assertions:</p>
+
+<ul>
+<li><p>the lazyLoader Factory should have the proper methods</p></li>
+<li><p>it should have a div with id 'bottom'</p></li>
+<li><p>when repeated items are rendered, the bottom div should follow the last item</p></li>
+<li><p>it should have a scope with keys for every lazy-load attribute</p></li>
+</ul>
+
+<p>Now that I had some guidelines to shoot for, I needed to mock up their execution.</p>
+
+<p>Some vital parts of mocking the Angular environment in which the piece you are testing operates:</p>
+
+<ul>
+<li>require the module being tested before each test runs</li>
+<li>mock a new $scope from the rootScope constructor, and</li>
+<li>inject depedencies via the $injector provider:</li>
+</ul>
+
+<pre><code>  beforeEach(module('ngLazy'));
+  beforeEach(inject(['$rootScope','$controller','$injector',function($rootScope, $controller, $injector){
+    lazyLoader = $injector.get('lazyLoader');
+    $scope = $rootScope.$new();
+  }]));
+</code></pre>
+
+<ul>
+<li>with lazyLoader being my module's factory, now I can check that some good-intentioned contributor doesn't break its backwards compatibility:</li>
+</ul>
+
+<pre><code>  it('should have a lazyLoader Factory', function(){
+    expect(lazyLoader).not.toBe(undefined);
+  });
+
+  it('the lazyLoader Factory should have the proper methods', function(){
+    expect(lazyLoader.configure).not.toBe(undefined);
+    expect(lazyLoader.getData).not.toBe(undefined);
+    expect(lazyLoader.load).not.toBe(undefined);
+  });
+</code></pre>
+
+<h3 id="testingadirective">Testing a directive</h3>
+
+<p>In order to test the directive that this module provides, we need to mock an angular element that invokes it, and give it some controller data to validate the features are functioning.</p>
+
+<p><strong>NOTE:</strong> if your directive has isolate scope whose properties you will be testing, use the isolateScope() method on your angular element, AFTER you have invoked <code>$compile</code> on it with a scope.</p>
+
+<pre><code>      describe('Directive', function(){
+        beforeEach(module('ngLazy'));
+
+        var element, $scope, list, bottom, elementScope;
+
+        beforeEach(inject(['$rootScope','$compile', function($rootScope, $compile){
+          $scope = $rootScope.$new();
+          $scope.data = {};
+          $scope.data.list = [
+            "item1",
+            "item2",
+            "item3",
+            "item4",
+            "item5"
+          ];
+          element = angular.element(
+          '&lt;lazy-load' +
+            ' lazy-data="data"' +
+            ' lazy-data-service="dataService"' +
+            ' lazy-fetch-method="getList"' +
+            ' lazy-range=" {{ range }}"' +
+            ' lazy-data-collection-key="list"' +
+            ' lazy-data-keys="[\'list\']"' +
+            ' lazy-start-delay="{{ startDelay }}"' +
+            ' lazy-append-delay="{{ appendDelay }}"' +
+            ' lazy-spinner-color="{{ spinnerColor }}"&gt;' +
+          '&lt;div ng-repeat="item in data.list"&gt;' +
+            '&lt;h4&gt;{{ item }}&lt;/h4&gt;' +
+          '&lt;/div&gt;' +
+          '&lt;/lazy-load&gt;');
+
+          $scope.$apply();
+          $compile(element)($scope);
+
+          elementScope = element.isolateScope();
+        }]));
+
+        it('should not break ng-repeat', function(){
+          $scope.$digest();
+          list = element.find('h4');
+          expect(list.length).toBe(5);
+        })
+
+        it('should have a div with id=\'bottom\'', function(){
+          bottom = element.find('div')[3];
+          expect(bottom.id).toBe('lazy-bottom');
+        })
+
+        it('when repeated items are rendered, the bottom div should follow the last item', function(){
+          $scope.$digest();
+          bottom = element.find('div')[8];
+          expect(bottom.id).toBe('lazy-bottom');
+        })
+
+        it('should have a scope with keys for every lazy-load attribute', function(){
+          expect(elementScope.lazyData).not.toBe(undefined);
+          expect(elementScope.lazyDataCollectionKey).not.toBe(undefined);
+          expect(elementScope.lazyDataKeys).not.toBe(undefined);
+          expect(elementScope.lazyFetchMethod).not.toBe(undefined);
+          expect(elementScope.lazyRange).not.toBe(undefined);
+          expect(elementScope.lazySpinnerColor).not.toBe(undefined);
+          expect(elementScope.lazyAppendDelay).not.toBe(undefined);
+          expect(elementScope.lazyStartDelay).not.toBe(undefined);
+          expect(elementScope.lazyDataService).toBe('dataService');
+        });
+
+      })
+
+    })
+</code></pre>
+
+<p>I swear, I wrote these tests and now I sleep much better a night. Next up, I'll try my hand at some notes about end-to-end testing <a href='http://ng-lazy.com/' >ngLazy</a>.</p>]]></description><link>http://my-ghost-blog.com/testing-nglazy-unit-tests-with-karma-amp-jasmine/</link><guid isPermaLink="false">09f943f0-5595-461d-ab6c-63744b691a05</guid><dc:creator><![CDATA[Adam D Richman]]></dc:creator><pubDate>Sat, 14 Jun 2014 05:51:00 GMT</pubDate></item><item><title><![CDATA[Configuring karma for AngularJS testing]]></title><description><![CDATA[<p>I've been working on the test suite for ngLazy, and I thought it could be helpful to document some notes that seem relevant after setting up karma in this project.</p>
+
+<p>First thing's first: <br />
+    <code>npm install karma</code></p>
+
+<p>followed by: <br />
+    <code>karma init</code></p>
+
+<p>The karma tests are configured via a file that is named <code>karma.conf.js</code> by convention. In it, we find a number of config properties on an object passed to the config.set method (config is the parameter that is passed to karma at the time of invocation). A little clarification about these properties would have helped quite a bit, namely:</p>
+
+<pre><code>  {
+    files: [...],
+  }
+</code></pre>
+
+<p>This files array must contain paths for all scripts that the app you are testing is dependent on. Not just your spec files. That means angular and all your other vital dependencies, including in this case, the path to ngLazy.</p>
+
+<p>There is also an <code>exclude:[...]</code> property, so that you can include files above using a wildcard <code>*</code> and then exclude specific files within those directories.</p>
+
+<p>Karma launches its own webserver, but this must run CONCURRENT to the locally served app you are testing. By default, it uses port 9876. But this is an important point to understand. You must also serve your app BEFORE you run tests and launch the karma server.</p>
+
+<p>Running your tests will be simplified with a build tool like grunt, and the grunt-karma npm package. This will run the necessary karma commands after defining a karma step in your grunt test script. If you don't use grunt, that is cool too! But don't forget, before you run your tests, you must start the karma server:</p>
+
+<pre><code>karma start path/to/tests/karma.conf.js
+</code></pre>
+
+<p>Then, to run the tests:</p>
+
+<pre><code>karma run path/to/tests/karma.conf.js
+</code></pre>]]></description><link>http://my-ghost-blog.com/configuring-karma-for-angularjs-testing/</link><guid isPermaLink="false">e868c164-f71f-4257-8584-6207c1564377</guid><dc:creator><![CDATA[Adam D Richman]]></dc:creator><pubDate>Wed, 11 Jun 2014 06:34:00 GMT</pubDate></item><item><title><![CDATA[ngLazy: Making an AngularJS Library]]></title><description><![CDATA[<h3 id="inpursuitofreusablity">In pursuit of re-usablity</h3>
+
+<p>A little while ago, I wrote a blog post about <a href='http://my-ghost-blog.com/blog/2014/05/12/implementing-a-lazy-load-and-infinite-scroll-in-angularjs/' >implementing a lazy load / infinite scroll in an app I was hacking on</a>. The logic was spread between a controller and directive, and it needed decoupling. It couldn't be re-used without copying a ton of code into any controller that wanted to use the feature. Further, implementing my spinner required logic throughout the controller that exists just to manipulate the DOM. It was a fine first implementation, but now it's time to refactor. I planned to:</p>
+
+<ul>
+<li>extract all DOM logic and spinner related manipulation into a directive</li>
+<li>extract the entire concept and turn it into an Angular library.</li>
+</ul>
+
+<p>The end goal is for the user to be able to implement a lazy-loading infinite scroll and spinner via a simple directive.</p>
+
+<p>The result is <a href='http://github.com/adrichman/ngLazy' ><strong>ngLazy</strong></a>.</p>
+
+<p>Now my controller is as agnostic to this feature as any other controller:  </p>
+
+<pre><code>.controller('listController', ['$scope', function($scope){
+  $scope.data = {
+    mongo : [],
+    gh    : {},
+    keen  : {}
+  };
+}])
+</code></pre>
+
+<p>The feature still requires a good amount of configuration per use case, so I have designed it with a factory and directive which takes configuration via the directive's element's attributes:</p>
+
+<pre><code>&lt;lazy-load  
+  lazy-data="data"
+  lazy-data-service="dataService"
+  lazy-fetch-method="getData"
+  lazy-range="12"
+  lazy-data-collection-key="mongo"
+  lazy-data-keys="['mongo','gh','keen']"
+  lazy-start-delay="150"
+  lazy-append-delay="1000"
+  lazy-spinner-color="#4FA7D9"
+  &gt;
+   &lt;table&gt;
+      &lt;thead&gt;
+         &lt;tr&gt;
+              &lt;td&gt;NAME&lt;/td&gt;
+              &lt;td&gt;STATS&lt;/td&gt;
+              &lt;td&gt;COMMENTS&lt;/td&gt;
+         &lt;/tr&gt;
+      &lt;/thead&gt;
+      &lt;tbody&gt;
+          &lt;tr ng-repeat="datum in data.mongo"&gt;
+              &lt;td class="cohort-pic"&gt;
+                &lt;span class="cohort-name"&gt;{{ datum.First }} {{ datum.Last }}&lt;/span&gt;&lt;br&gt;
+              &lt;/td&gt;
+               &lt;td class="cohort-stats-col cohort-score"&gt;
+                 &lt;div&gt; some stats&lt;/div&gt;
+              &lt;/td&gt;
+              &lt;td &gt;&lt;textarea class="form-control cohort-comments-form" rows="3"&gt;{{ datum.comments }}&lt;/textarea&gt;
+              &lt;/td&gt;
+          &lt;/tr&gt;
+      &lt;/tbody&gt;
+  &lt;/table&gt;
+&lt;/lazy-load&gt;  
+</code></pre>
+
+<pre><code>(function(angular){
+  'use strict';
+
+  angular.module('ngLazy',[
+    'ngLazy.factories',
+    'ngLazy.directives'
+  ]);
+
+  angular.module('ngLazy.directives',[])
+  .directive('lazyLoad', ['$injector','$window','$document','$timeout','$rootScope',function($injector, $window, $document, $timeout, $rootScope){
+
+    var appendAnimations = function(){
+      var style       = document.createElement('style');
+      var keyframes   = '@-webkit-keyframes spin {\n' +
+                        '\t0%{-webkit-transform: rotate(0deg);}\n' +
+                        '\t100%{-webkit-transform: rotate(360deg);}\n' +
+                        '}\n' +
+                        '@keyframes spin{\n' +
+                        '\t0%{transform: rotate(0deg);}\n' +
+                        '\t100%{transform: rotate(360deg);}\n' +
+                        '}';
+
+      style.innerHTML = keyframes;
+      document.head.appendChild(style);
+    };
+
+    var makeSpinner = function(el){
+      el.css({
+        WebkitBoxSizing: 'border-box',
+        boxSizing: 'border-box',
+        display: 'block',
+        width: '43px',
+        height: '43px',
+        margin: 'auto',
+        borderWidth: '8px',
+        borderStyle: 'solid',
+        borderColor: 'transparent rgb(85, 148, 250) rgb(85, 148, 250) rgb(85, 148, 250)',
+        borderRadius: '22px',
+        animation: 'spin 0.8s linear infinite',
+        WebkitAnimation: 'spin 0.8s linear infinite'
+      });
+      return el;
+    };
+
+    return {
+      restrict: 'E',
+      scope: {
+        lazyData              : '=',
+        lazyDataCollectionKey : '@',
+        lazyDataService       : '@',
+        lazyFetchMethod       : '@',
+        lazyRange             : '@',
+        lazyDataKeys          : '=',
+        lazyStartDelay        : '@',
+        lazyAppendDelay       : '@',
+        lazySpinnerColor      : '@'
+      },
+      transclude: true,
+      template: '&lt;div ng-transclude&gt;&lt;/div&gt;' +
+                '&lt;div class=\'col-md-12 loading\' ng-hide=\'spinner.hide\'&gt;' +
+                  '&lt;div class=\'loading-widget\'&gt;&lt;/div&gt;' +
+                '&lt;/div&gt;'+
+                '&lt;div id=\'lazy-bottom\'&gt;&lt;/div&gt;',
+      link: function(scope) {
+              var winEl             = angular.element($window),
+                  win               = winEl[0],
+                  lazyBottom        = angular.element(document.querySelector('#lazy-bottom'))[0],
+                  lazyBottomOffset  = lazyBottom.offsetTop - 20,
+                  lazyLoader        = $injector.get('lazyLoader'),
+                  dataService       = $injector.get(scope.lazyDataService),
+                  loadingWidget     = angular.element(document.querySelector('.loading-widget')),
+                  hasRun            = false,
+                  loading           = false;
+
+              appendAnimations();
+              loadingWidget         = makeSpinner(loadingWidget);
+              scope.spinner         = { hide : false };
+
+              var lazyLoad = function(){
+                lazyLoader.configure({
+                  data            : scope.lazyData,
+                  collectionKey   : scope.lazyDataCollectionKey,
+                  fetchData       : dataService[scope.lazyFetchMethod],
+                  range           : scope.lazyRange,
+                  dataKeys        : scope.lazyDataKeys,
+                  startDelay      : scope.lazyStartDelay,
+                  appendDelay     : scope.lazyAppendDelay
+                });
+
+                lazyLoader.load().then(function(data){
+                  if(!hasRun){
+                    angular.forEach(Object.keys(data), function(key){
+                      scope.lazyData[key] = data[key];
+                    });
+                  } else {
+                    scope.lazyData[scope.lazyDataCollectionKey] = data[scope.lazyDataCollectionKey];
+                  }
+                  loading = false;
+                });
+              };
+
+              $rootScope.$on('hideLoading', function(){ scope.spinner.hide = true; });
+              $rootScope.$on('showLoading', function(){ scope.spinner.hide = false; });
+
+              winEl.bind('scroll', function(){
+                if (!loading &amp;&amp; win.scrollY &gt;= lazyBottomOffset) {
+                  loading = true;
+                  lazyBottomOffset = lazyBottomOffset * 2;
+                  win.requestAnimationFrame(function(){
+                    scope.$apply(function(){
+                      lazyLoad();
+                      lazyBottomOffset = lazyBottom.offsetTop-10;
+                    });
+                  });
+                }
+              });
+              lazyLoad();
+            }
+          };
+  }]);
+
+  angular.module('ngLazy.factories',[])
+  .factory('lazyLoader', ['$timeout','$rootScope', '$q', function($timeout, $rootScope, $q){
+    var cache = { data : {} },
+        config,
+        data,
+        collectionKey,
+        fetch,
+        responseKeys,
+        range,
+        appendDelay,
+        startDelay;
+
+    return ({
+
+      configure:  function(options){
+                    config = options;
+      },
+
+      getData : function(){
+                  data          = config.data;
+                  collectionKey = config.collectionKey;
+                  fetch         = config.fetchData;
+                  responseKeys  = config.dataKeys;
+                  range         = config.range;
+                  appendDelay   = config.appendDelay;
+                  startDelay    = config.startDelay;
+
+                  var deferred  = $q.defer();
+
+                  $rootScope.$broadcast('showLoading');
+
+                  if (!cache.data[collectionKey]) {
+                    fetch().then(function(res){
+                      angular.forEach(responseKeys, function(key){
+                        cache.data[key] = res.data[key];
+                        if (key === collectionKey) {
+                          data[key]       = [];
+                          data[key] = data[key].concat(cache.data[key].splice(0, range));
+                        } else {
+                          data[key] = cache.data[key];
+                        }
+                      });
+                      deferred.resolve(data);
+                      $rootScope.$broadcast('hideLoading');
+                    });
+                  } else {
+                    $timeout(function(){
+                      data[collectionKey] = data[collectionKey].concat(cache.data[collectionKey].splice(0, range));
+                      deferred.resolve(data);
+                      $rootScope.$broadcast('hideLoading');
+                    }, appendDelay);
+                  }
+                  return deferred.promise;
+      },
+
+      load :  function(){
+                var deferred = $q.defer();
+                var _this = this;
+
+                $rootScope.$broadcast('showLoading');
+
+                var loadTimer = $timeout(function(){
+                  _this.getData().then(function(col){
+                    deferred.resolve(col);
+                  });
+                }, startDelay);
+
+                loadTimer.then(function(){
+                  $timeout.cancel(loadTimer);
+                });
+
+                return deferred.promise;
+      }
+    });
+  }]);
+
+})(angular);
+</code></pre>
+
+<p>In the future, I am looking to make this module more configurable, such as adding a custom spinner or easily changing the spinner styling. I also intend to further refactor this to remove elements from the DOM when they have left the screen, and re-add them upon scrolling up.</p>
+
+<p>The configuration is explained in the <a href='http://github.com/adrichman/ngLazy/' >repo's README</a>, but the main-takeaway is this: with the <code>&lt;lazy-load&gt;</code> tag, simply wrap the element that will be displaying your list of info. Tell the lazy-load library what service you will use to fetch that data and how you would like it to be divided and presented. <strong>ngLazy handles the rest.</strong></p>
+
+<p><em>NEXT UP: <a href='http://my-ghost-blog.com/blog/2014/06/10/configuring-karma-for-angularjs-testing/' >Testing ngLazy</a></em></p>]]></description><link>http://my-ghost-blog.com/nglazy-making-an-angularjs-library/</link><guid isPermaLink="false">b6efb8c7-e9ad-4345-b50a-f37f6b392ce6</guid><dc:creator><![CDATA[Adam D Richman]]></dc:creator><pubDate>Tue, 03 Jun 2014 22:32:00 GMT</pubDate></item><item><title><![CDATA[implementing a lazy load and infinite scroll in AngularJS]]></title><description><![CDATA[<p>I am planning to refactor this into a more simple, modular directive, but before doing so, I just want to describe how I approached implementing a lazy load and infinite scroll on a project I picked up. It's a dashboard for tracking individual and group progress. <em>(Sidenote: I also would like to modularize it into an easy, near-instant dashboard library. The version I'm currently building interfaces with 2 external APIs (<a href='http://github.com/' >Github</a> and <a href='http://keen.io/' >Keen.io</a>), as well as an API that I implemented in a nodeJS server.)</em></p>
+
+<p>This implemenation is dependent on an API that responds once with the entire data set that will need to be fetched. Originally, I designed the api to respond to multiple calls from the client because I thought that returning too much would negetivley impact browser performance. But, that was naive. The browser can handle this without breaking a sweat.</p>
+
+<pre><code>///////////////////////
+// listController.js //
+///////////////////////
+
+angular.module('myApp').controller('listController', ['$scope','dataService','$timeout',  function($scope, dataService, $timeout){
+
+  $scope.data = {};
+  $scope.spinner = {};
+  $scope.data.mongo = [];
+
+  // used to show and hide the table element that will display the data
+  $scope.isLoading = true;
+
+  // used to manipulate the element containing the spinner once the data table
+  // is displayed
+  $scope.spinner.hide = false;
+
+  // this will store the bulk of the data from the initial response.
+  // then we will splice items off as needed
+  var cache = { data: { mongo: [] } };
+
+  var getData = function(){
+
+    // check that the view-bound data set is empty
+    if ($scope.data.mongo.length &lt; 1){
+
+      dataService.getData()
+        .then(function(res){
+
+          // display the table element
+          $scope.isLoading = false;
+
+          // declare the $timeout with a reference in order to cancel
+          // it later. the $timeout invokes the AngularJS digest cycle
+          // and will update the view bound to the data
+          var appendDataTimer = $timeout(function(){
+            cache.data.mongo = res.data.mongo;
+
+            // splice some data to append to the view
+            $scope.data.mongo = $scope.data.mongo.concat(cache.data.mongo.splice(0, 12));
+
+            // assign some other data hashes from the response to the $scope
+            // so they can be referenced in the view
+            $scope.data.gh = res.data.gh;
+            $scope.data.keen = res.data.keen;
+
+            // remove the spinner from the view
+            $scope.spinner.hide = true;
+
+          },150);
+
+          // invoke the timeout and remove it when the promise resolves
+          appendDataTimer.then(function(){
+            $timeout.cancel(appendDataTimer);
+          })
+      });
+
+    } else {
+      // the view contained data, so continue to splice from the cache and add // to the view data
+      $scope.data.mongo = $scope.data.mongo.concat(cache.data.mongo.splice(0, 12));
+
+      // delays feel more 'magical'
+      $timeout(function(){
+        $scope.spinner.hide = true;
+      },1000);
+    }
+  };
+
+  // to be invoked on the scroll event in our directive, which will be
+  // triggered once we scroll through some data that is already displayed
+  $scope.loadMore = function(){
+    $scope.spinner.hide = false;
+    var loadTimer = $timeout(function(){
+      getData();
+    }, 2000)
+    loadTimer.then(function(){
+      $timeout.cancel(loadTimer);
+    });
+  };
+
+  // invoke the retrieval of data
+  getData();
+}])
+</code></pre>
+
+<pre><code>/////////////////////////////////////////
+// _list_partial.html (without styles) //
+/////////////////////////////////////////
+
+&lt;table class="table table-striped table-hover" ng-if="!isLoading" when-scrolled="loadMore()"&gt;  
+   &lt;thead&gt;
+     &lt;tr&gt;
+       &lt;td&gt;NAME&lt;/td&gt;
+       &lt;td&gt;STATS&lt;/td&gt;
+       &lt;td&gt;COMMENTS&lt;/td&gt;
+     &lt;/tr&gt;
+   &lt;/thead&gt;
+    &lt;tbody&gt;
+      &lt;tr ng-repeat="datum in data.mongo"&gt;
+        &lt;td&gt;
+          &lt;span&gt;{{ datum.First }} {{ datum.Last }}&lt;/span&gt;&lt;br&gt;
+        &lt;/td&gt;
+        &lt;td class="cohort-stats-col cohort-score"&gt; some stats &lt;/td&gt;
+        &lt;td &gt;&lt;textarea rows="3"&gt;{{ datum.comments }}&lt;/textarea&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+    &lt;/tbody&gt;
+  &lt;/table&gt;
+  &lt;div ng-hide="spinner.hide"&gt;
+    &lt;img src='http://my-ghost-blog.com/img/spinner.gif' &gt;
+  &lt;/div&gt;
+</code></pre>
+
+<pre><code>//////////////////////////
+// lazyLoadDirective.js //
+//////////////////////////
+
+angular.module('myApp')  
+.directive('whenScrolled', function($window, $timeout) {
+  return {
+    restrict: "A",
+    link: function(scope, element, attr) {
+      var top = angular.element($window)[0].screenTop;
+      var origHeight = angular.element($window)[0].screen.height;
+      var height = (origHeight * 0.9);
+
+      // bind the digest cycle to be triggered by the scroll event
+      // when it exceeds a threshold
+      angular.element($window).bind('scroll', function() {
+        if (angular.element($window)[0].scrollY &gt;= (height)) {
+
+          // show the spinner when triggered
+          scope.spinner.hide = !scope.spinner.hide;
+
+          angular.element($window)[0].requestAnimationFrame(function(){
+            // invoke the function passed into the 'whenScrolled' attribute
+            scope.$apply(attr.whenScrolled);
+
+            // increment the threshold
+            height += (origHeight * 1.5);
+          })
+        }
+      });
+    }
+  }
+})
+</code></pre>]]></description><link>http://my-ghost-blog.com/implementing-a-lazy-load-and-infinite-scroll-in-angularjs/</link><guid isPermaLink="false">e6f8c3b7-0bd5-4c3e-9fd1-f7a86dbf43b9</guid><dc:creator><![CDATA[Adam D Richman]]></dc:creator><pubDate>Mon, 12 May 2014 16:03:00 GMT</pubDate></item><item><title><![CDATA[Stylr: making a mobile app with AngularJS]]></title><description><![CDATA[<p>{% vimeo 99956183 %}</p>
+
+<p><a href='https://github.com/adrichman/stylr' >Stylr</a> is a mobile app that, for lack of a better explanation, is probably best referred to as "Tinder for fashion". My friend <a href='https://github.com/brendonv' >Brendon Verissimo</a> and I conceived and developed it. The idea behind the app is that users can tell the app about their tastes, and the app will track their preferences, eventually revealing their most prevelent style taste, and then go on to recommend actual fashion items to the user.</p>
+
+<p>The stack for Stylr consists of:</p>
+
+<ul>
+<li><p>mongoDB instance, hosted by mongoLab</p></li>
+<li><p>NodeJS / Express server, hosted on a Digital Ocean droplet</p></li>
+<li><p>AngularJS / Ionic Framework web app</p></li>
+<li><p>Apache Cordova to wrap the app in a mobile native container</p></li>
+</ul>
+
+<p>The performance of the web app on a phone, in relationship to native apps, is pretty remarkable. The <a href='http://ionicframework.com/' >ionic framework</a> is basically bootstrap for your mobile web app. While we didn't use many of its features, it specializes in recreating familar native views, flows and gestures, all in an AngularJS app that's running in a webkit browser.</p>
+
+<p>One of the key components of Ionic's framework is the <a href='https://github.com/angular-ui/ui-router' >Angular-UI Router</a>. Once I got to know this module, I basically vowed to never again use Angular's native $routeProvider. The Angular-UI Router allows for nested states, which makes it very easy to implement views as parents and children, allowing for a pattern that much closer suits the way we think about views. It gives the developer a stateProvider, through which states can be accessed through various means.</p>
+
+<p>Perhaps the most difficult challenge during the developemnt of Stylr was implementing the horizontal swipe-cards. I started with an old example of vertically swiped cards that behaved quite differently. A few days of tweaking and I was able to dictate the behaviors I was looking for - namely, the proper interpretation of the user's intent, and the corresponding actions. For instance:</p>
+
+<ul>
+<li><p>if the user is moving at an accelerating velocity at the moment of release, they likely intent to toss this card. So this must trigger an animation that continues the current trajectory of the card view. It must also trigger the logic to pop the last card off the stack of cards to be played.</p></li>
+<li><p>if the user is not accelerating at the moment of releasing their finger, it's likely that they intend to reconsider their own intent. The appropriate action here was to snap the card back to it's starting place, and be sure not to register any preference from the user.</p></li>
+</ul>
+
+<p>The original card interaction demo has since been iterated on (check the pull requests), and can be found <a href='https://github.com/driftyco/ionic-contrib-swipe-cards' >here</a>.</p>]]></description><link>http://my-ghost-blog.com/stylr-making-a-mobile-app-with-angularjs/</link><guid isPermaLink="false">96c6f03e-665d-484b-905b-ec47c6aa293b</guid><dc:creator><![CDATA[Adam D Richman]]></dc:creator><pubDate>Wed, 02 Apr 2014 04:55:00 GMT</pubDate></item><item><title><![CDATA[that time when our mocha tests passed consistently... every second time that we ran them]]></title><description><![CDATA[<p>We had a thorough suite of tests for our node/express server and mongodb test database, and we were delighted that they were putting our app through the paces. We were even happier that we'd tweaked our app's code until all of them passed. But we were befuddled when the tests consistently failed every second time that we ran them.</p>
+
+<h2 id="apeakinsideourcode">A peak inside our code  </h2>
+
+<pre><code>describe('Video Routes API', function () {
+
+  var server;
+
+  before(function (done) {
+    process.env['MONGOHQ_URL']="mongodb://ourApp:ourPWD@subdomain.mongohq.com:10042/ourTestDB";
+    server = child.exec('node web.js &amp;', { killSignal: "SIGTERM"}, function(err, stdout, stderr){
+      console.log('something', err, stdout,stderr);
+      done();
+    });
+  });
+  after(function(done){
+    server.kill();
+    done();
+  });
+}
+</code></pre>
+
+<p>What we were hoping to achieve here was the ability to spin up our server instance from inside of the test suite. This way we could set our environmental variable for the database to direct connections to our remote test database. Also, this would provide for a less granular set of integration tests.</p>
+
+<p>We used the child.exec() method because we expected it to asynchronously start our server from the shell, and return a callback when it was ready.</p>
+
+<h2 id="theresults">The results:  </h2>
+
+<p>First time: All tests pass</p>
+
+<p>Second time: <br />
+    0 passing (8s)
+    6 failing</p>
+
+<pre><code>1) User API Video Routes API GET /clips should return 200:
+   Error: timeout of 2000ms exceeded
+    at null.&lt;anonymous&gt; (/usr/local/lib/node_modules/mocha/lib/runnable.js:175:14)
+    at Timer.listOnTimeout [as ontimeout] (timers.js:110:15)
+...
+
+6) User API Video Routes API should return 200 upon reciept of favorite of a video:
+   Error: connect ECONNREFUSED
+    at errnoException (net.js:901:11)
+    at Object.afterConnect [as oncomplete] (net.js:892:19)
+</code></pre>
+
+<p>We were wrong. A few things were fairly obvious:</p>
+
+<ol>
+<li><p>the callback was never being called!</p></li>
+<li><p>our tests were unable to connect to our server.</p></li>
+</ol>
+
+<p>Fine, but why only every other time? We hypothetsized that our server was not hanging up after our tests were done running, but it didn't make a whole lot of sense that it would be unavailable for reconnections.</p>
+
+<h2 id="resolution">Resolution  </h2>
+
+<p>After a long, painful exploration of the native child process functions in nodejs (really, I am still quite grateful for the opportunity to have become familiarized), we understood that our callback wasn't being called because there was never any "finish" to the buffered output of a still-running server. child.exec() was not the method we needed. Sure enough, we verified that our server process was still running after the tests ran, and on the next subsequent attempt, our tests connected and passed. Apparently our server.kill() method wasn't getting the job done for us. As it turns out, child.exec() isn't going to be our friend for that method either.</p>
+
+<p>The answer was two-fold:</p>
+
+<ol>
+<li><p>substitute child.exec() with the synchronous child.spawn().</p></li>
+<li><p>implement a timeout before the tests run, just to give the server some time to get up and running before we try to test it.</p></li>
+</ol>
+
+<p>It's kind of a hacky solution, we know. In a world where we had more time with this project, we would have explored having our server emit a 'ready' message for our tests to listen to. For now, though, this worked just fine:  </p>
+
+<pre><code>describe('Video Routes API', function () {  
+  var server;
+
+  before(function (done) {
+    process.env['MONGOHQ_URL']="mongodb://ourApp:ourPWD@subdomain.mongohq.com:10042/ourTestDB";
+    server = child.spawn('/usr/local/bin/node', ['/Users/path/to/ourApp/web.js'],  {detached: true, stdio: [ 0, out, err ]});
+    setTimeout(done, 1000);
+  });
+  after(function(done){
+    server.kill();
+    done();
+  });
+}
+</code></pre>
+
+<p>Now our tests run properly every single time, and they pass to-boot!</p>
+
+<h2 id="tldr">TL;DR  </h2>
+
+<p>Consider child.spawn() when you need to start a different program from inside of your running, node program. And don't presume that your server is ready for connections immediately after instantiating it!</p>]]></description><link>http://my-ghost-blog.com/that-time-when-our-mocha-tests-passed-consistently-every-second-time-that-we-ran-them/</link><guid isPermaLink="false">585ea725-3d33-4373-887d-ed18358e46fc</guid><dc:creator><![CDATA[Adam D Richman]]></dc:creator><pubDate>Tue, 04 Mar 2014 06:56:00 GMT</pubDate></item><item><title><![CDATA[Man Vs. S3]]></title><description><![CDATA[<p><a href='https://gist.github.com/adrichman/e550885f6011f37d6bd3' >Solution Gist: <a href='https://gist.github.com/adrichman/e550885f6011f37d6bd3' >https://gist.github.com/adrichman/e550885f6011f37d6bd3</a></a></p>
+
+<h5 id="formorehoursthaniliketoadmitistruggledtofreeourselvesfromawsss3sdkhttpawsamazoncomsdkfornodejs">For more hours than I like to admit, I struggled to free ourselves from <a href='http://aws.amazon.com/sdkfornodejs/' >AWS's S3 SDK</a>.</h5>
+
+<p>We were trying to facilitate direct uploads from our client to our S3 bucket, but without exposing any credentials that would need to be present on the client side. The answer to doing this requires that you deliver the client a temporary, signed URL or policy that is generated on your own server and returned to the client in order to accompany the payload to S3. Unfortunately this is where the SDK stopped working for us.</p>
+
+<p>I scoured the web for days in search of solutions and found myriad similar stack overflow questions and blog entries on this very challenge. Still, I came up empty handed when I attempted to integrate many of the code examples, I presume because Amazon has since changed their API, or because of some other finicky detail that I wasn't identifying.  I suppose that this kind of request just screams CORS and I understand why. I finally found my way to code that worked for us after finding a few posts that shined some meaningful light on the solving this problem. They are <a href='http://stackoverflow.com/questions/11240127/uploading-image-to-amazon-s3-with-html-javascript-jquery-with-ajax-request-n/12378395' #12378395">here</a>, <a href='http://bencoe.tumblr.com/post/30685403088/browser-side-amazon-s3-uploads-using-cors' >here</a> and <a href='http://stackoverflow.com/questions/18476217/amazon-s3-post-api-and-signing-a-policy-with-nodejs' >here</a>.</p>
+
+<p>My takeaways upon succeeding:</p>
+
+<ul>
+<li><p>the order of your headers REALLY matters to amazon. This is not evident in their documentation, which at times is contradictory.</p></li>
+<li><p>getting to know <a href='https://developer.mozilla.org/en-US/docs/Web/API/FormData' >HTML5's FormData object</a> was crucial for appending our policy to the payload.</p></li>
+</ul>
+
+<h4 id="checkoutmysolutionhttpsgistgithubcomadrichmane550885f6011f37d6bd3">check out my <a href='https://gist.github.com/adrichman/e550885f6011f37d6bd3' >solution</a></h4>
+
+<p>Ultimately, we reverted to using Amazon's SDK and piping uploads from the client through our server on their way to s3. Solving this problem with our web form was not really going to be sufficient because our client is an Angular / Ionic / Cordova mobile app, and this simple upload form was going to require some refactoring and trial-and-error that would cost us precious time that we didn't have. With a little more time, we can change that and the client will retrieve our dynamically generated, signed-policy that will give it temporary credentials for direct upload to our S3 bucket.</p>
+
+<p>Hopefully someone will find this post some day in the future that is soon enough for it to be helpful - before Amazon changes their API.</p>]]></description><link>http://my-ghost-blog.com/man-vs-s3/</link><guid isPermaLink="false">5088c856-8edd-41dd-817b-4934a25b929f</guid><dc:creator><![CDATA[Adam D Richman]]></dc:creator><pubDate>Fri, 28 Feb 2014 08:05:00 GMT</pubDate></item><item><title><![CDATA[super bowl sunday, morning review of toy problems]]></title><description><![CDATA[<p>Sundays during my time in San Francisco have revealed a fairly cemented routine of their own. They are the one day I have in a week in which I'm not expected to be at the school on 5th and market. Nonetheless, I usually get a full day's worth of studying on Sundays, but only after doing something Sunday-ish (read: brunch). Today I'm parking at <a href='http://www.yelp.com/biz/vinyl-coffee-and-wine-bar-san-francisco' #query:vinyl%20cafe">Vinyl Café</a> on Divisadero with plans to do some serious review of this past week's lessons. I may head down to the school to watch the super bowl with the rest of my class of conflicted coders who are as amped to code as they are un-amped to be missing today's TV extravaganza.</p>
+
+<p>Anyway, let's review. I'll be starting with some "toy problems", just like we start every day at <a href='http://www.hackreactor.com/' >Hack Reactor</a>. I will only be writing about code and not showing actual code. I do not have permission to share the class's material and, even though these are common toy problems, I do not feel comfortable publishing the exact answers. Also, writing about the solutions is my preferred mechanism for review to reinforce my comprehension. I understand that it may be virtually useless to anybody else.</p>
+
+<p>Before attending HR, I made it a point to get a grasp on recursive solutions to problems. I had read in many places that the mark of someone who has potential has a programmer is that they must be able to understand and intuit recursive programming.</p>
+
+<h2 id="somebackground">some background:  </h2>
+
+<p>A <a href='http://en.wikipedia.org/wiki/Recursion' >recursive algorithm</a> essentially invokes itself repeatedly until it hits some base case that will make it stop and, sometimes, return it's whole trace of calculated results from the bottom of the stack and propagate them up to the top. Sometimes, while it recurses, it is storing results in some data structure outside of itself that is held in closure scope (in javascript). Programmers call this a side-effect.</p>
+
+<p>The hallmark of a problem that can benefit from a recursive solution is that it is made up of many small instances of the same, larger problem. By calling itself enough times to solve the large problem, it provides a bulletproof set of instructions that can naturally adapt to the size of its input without any additional logic.</p>
+
+<h2 id="programmingstayhumble">Programming: Stay Humble  </h2>
+
+<p>When I finally felt like I had a grasp on imagining recursive solutions, my confidence as a programmer improved noticeably. Still, there is often many more than one recursive solution to a problem, and at HR, I've come to learn how the feeling that comes with conjuring my first idea for a solution is, sometimes, a liability. In fact, algorithms that depend on using recursion to iterate are often times less efficient than other iterative approaches. When I began to understand that, I started to see how humility was going to play a great role in my ability to program from a practical angle. Sure, the seeming-sophistication of recursion is more obvious, because it wraps its logic inside of what, for me, essentially amounts to a leap of faith. It's cleaner, shorter, and just-plain-cooler to solve things with as few instructions as needed. But it's not always efficient to computation. What matters most, I've learned, is that a solution is judged on its time and space complexity, first and foremost.</p>
+
+<p>This week I began to see some tricks that produce non-trivial improvements in basically the same amount of code. Some examples:</p>
+
+<h2 id="treebreadthfirstfilter">Tree: Breadth-First Filter  </h2>
+
+<p>A function that applies a truth test to the leaves of a tree that traverses <a href='http://en.wikipedia.org/wiki/Breadth-first_search' >breadth-first</a> by using a for-loop inside of a while loop. The leaves are are pushed into to a queue in the order of their siblings  - i.e. their children are not visited until all siblings have been. The while loop iterates through the queue, so as long as there is a leaf in the queue, the function will run. What makes this better than a recursive solution? Often times, a recursive solution can require making a copy of its input at every stage so that it doesn't mutate the original input, which other recursive calls may need to operate on in its original state. Comparatively, that means that this looping solution requires far less space.</p>
+
+<p>This was also a great opportunity to learn a valuable precept of breadth-first tree traversals. In the future, I now know that this kind of problem usually calls for the use of a queue. When traversing an entire tree, the time complexity is limited to O(n) at best. A solution requiring more time than that is less efficient and can be ruled out.</p>
+
+<h2 id="summingarray">Summing Array  </h2>
+
+<p>In another problem, we were given an array of size n and asked to calculate the greatest sum of any of its contiguous numbers. The solution must account for the presence of negative numbers. I considered many approaches to this and hoped to land on a recursive solution. What I found is that this would require a lot of space and there was no need to mutate the input or make any copies. By using a for-loop within a for-loop, we can conduct an iteration through the array that starts on index 0, and then repeats itself while i &lt; the length of the array. Each time it repeats, the iteration will begin one index further into the array. We hold the first index as the maximum sum and calculate a new sum that is specific to this round of iteration. When this new sum becomes greater than our max sum, it takes the place of the max sum. Each time the outer for-loop iterates, the new sum is reset to 0 and will begin comparing itself against the last held maximum sum. The time complexity is n squared - an iteration through the array on each step of another iteration of size n.</p>
+
+<h2 id="numbersintoenglish">Numbers into English  </h2>
+
+<p>In this problem, we are given two hashes of key-value pairs: one with the integers as keys 0-20 (increasing by ones) and 20-90 (increasing by tens) whose values are strings holding their english equivalent. <br />
+A second hash features the same pattern for the values ten, hundred, thousand and then increasing up through quintillion with each succeeding value multiplied by 1000.</p>
+
+<p>This problem uses a recursive feature when calling itself on the remainders of modulus calculations. Those remainders are parsed by a step that accounts for numbers 1 - 100. It first checks for a number's presence in the first hash table, and if not, it will divide it by ten and call itself on the remainder. <br />
+Excepting the cases between 100 and 1000, the rest is done fairly easily.</p>
+
+<ol>
+<li><p>calculate a value for the number's current place (1000, 10000, etc...) by multiplying the initial place (1000) by 1000 while the result is less than or equal to the input number.</p></li>
+<li><p>divide the number by it's current place and round to the nearest integer.</p></li>
+<li><p>calculate modulus for the remainder when the number and place don't evenly divide.</p></li>
+<li><p>create a string that is the concatenation of calling itself on the result of the first division and a lookup of the current place in the second hash (words like thousand, million, etc.);</p></li>
+<li><p>finally, invoke the method on the result of the calculation for the remainder (if the remainder wasn't zero). Concatenate this to the end of the string.</p></li>
+</ol>
+
+<p>I am unsure of the time complexity of this algorithm because variance in the number of steps is dependent on many qualities of the input, but not its size (always 1).</p>
+
+<h2 id="functionbind">Function Bind  </h2>
+
+<p>In this problem we are asked to implement the <a href='https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/bind' >method on the function prototype called 'bind.'</a> This method operates on the function that call it, binds the current context to future calls of the function and applies arguments as parameters in those subsequent calls. The tricky part is that it must accept a function as future context and be able to call that function on new arguments. <br />
+My solution came fairly easily, slicing the the arguments object and treating the first item as a function used as context for future calls. Other slices then deplete the arguments object into the arguments that need to be called on its first call. The function must return a function that applies its initial input on new arguments that will be passed in. While the solution I arrived at didn't seem to have any special need to adjust for time or space complexity, since it didn't require more than a few steps, I was wrong. I planned to separate my arguments with the Array prototype's slice method. Bad idea. While both the slice method and shift/unshift methods require an iteration through the entire length of the array in order to re-index its values, a much more efficient solution is found when considering space complexity. The slice method, by design, creates a copy of the array it is called on, and this is not needed here. The shift and unshift methods mutate the array in its place and require no more space than was initially designated. This isn't all that important when implementing a function like the one we are discussing, but it illustrates well how small decisions can potentially have largely different implications to your application, despite arriving at the same results in the same amount of time.</p>
+
+<h2 id="coinsums">Coin Sums  </h2>
+
+<p>Let's discuss a problem that I found challenging to solve, before even considering time or space complexity.</p>
+
+<p>We are given the values of a number of currencies and are asked that given an arbitrary value for our input, we can count all possible combinations of these coins to arrive at that value. The solutions can contain any number of coins.</p>
+
+<ol>
+<li>We instantiate a counter at 0  </li>
+<li>We create a function that accepts a current index and the input (our total to work towards)  </li>
+<li>We iterate through the set of denominations from greatest to smallest  </li>
+<li>We increment our counter on the base case that we are on the final index to be checked, and the modulus of total and our currently held denomination is 0; Then return.  </li>
+<li>While the total is greater than or equal to 0 (we will be decrementing it), we call this function and pass index-1 and the total.  </li>
+<li>We decrement the total by the current denomination, and this is used to stop our while-loop as it makes subsequent calls for a diminishing total.  </li>
+<li>We invoke the function we built from outside and return our count when the function finishes executing.</li>
+</ol>
+
+<p>An important lesson I learned from the solution lecture for this problem: when overwhelmed by a problem that looks to be solved by recursion, consider visualizing the permutations with a much smaller input set. By observing the pattern, your instructions may reveal themselves.</p>
+
+<h2 id="telephonewords">Telephone Words  </h2>
+
+<p>Lastly, an algorithm to give us all possible permutations of words formed by telephone-number input (of n length, where numbers never change places, but we consider each possible letter that can be represented by each digit). I managed to solve this using a method I frequently try on first approach for solutions that are based on finding permutations. That method usually involves starting with a large structure or number and making it become smaller on each subsequent recursive call. It also involves a usually empty object at the beginning that will accumulate/concatenate results on each subsequent call, eventually being large enough to hit the base case and end the recursive calls. My solution to this worked well but was pretty verbose. The solution presented in class was far more elegant.</p>
+
+<ol>
+<li><p>an array to store our results is instantiated.</p></li>
+<li><p>our input number is split into an array of single integers.</p></li>
+<li><p>we define a recursive function that will take two inputs - the word (which at the beginning is an empty string), and an index (which will increase as we iterate down the array of integers).</p></li>
+<li><p>the base case will stop the recursive calls when the length of our word is as long as our input's length (n).</p></li>
+<li><p>we are given a hash of keys 0-9 with their values being the possible letters to match each digit. we hold the string of 3-4 possible letters that corresponds with the digit we are currently operating on (determined by the index, starting at 0).</p></li>
+<li><p>A for-loop will iterate through each possible letter for the digit at this index.</p></li>
+<li><p>we call the function inside of the for-loop, passing it the result of the word that we passed in at the beginning concatenating with the letter that is currently identified by the for-loop. the second argument is our index, and we increment it by 1 as we pass it, which will make the next set of calls to all possible letters for the digit that is next in line.</p></li>
+<li><p>lastly, return the array in which we stored our results.</p></li>
+</ol>
+
+<h2 id="tldr">TL;DR  </h2>
+
+<p>Forget it, <a href='https://www.google.com/search?q=recursion' >just google 'recursion'</a> and have yourself a good laugh. It may take a second to reveal itself, so read the results carefully.</p>]]></description><link>http://my-ghost-blog.com/super-bowl-sunday-morning-review-of-toy-problems/</link><guid isPermaLink="false">cbc556f3-5729-4863-ae1f-ead59300d1b1</guid><dc:creator><![CDATA[Adam D Richman]]></dc:creator><pubDate>Sun, 02 Feb 2014 19:16:00 GMT</pubDate></item><item><title><![CDATA[traversing the binary data tree... called life]]></title><description><![CDATA[<p>This morning I have a quick moment for a short reflection on what we've learned so far at Hack Reactor, but my mind's presence is challenged by big changes back in NYC. While I am prepping myself for our weekly assessment (probably a prompt to recreate the solutions to problems we solved last week), my recording studio, its equipment and most of my instruments are being disassembled and removed for good - on to become another man's treasure. It is very much the point of no return.</p>
+
+<p>So, I suppose that a depth-first log of my life's binary-tree data structure has officially found its longest path to a tree node with no children. It's not THAT crappy of an analogy.</p>
+
+<p>Meanwhile, I am having an unforgettably special experience here in San Francisco at Hack Reactor. Since my arrival just 8 days ago, every moment has consumed me with thoughts about code, and I feel insulated from distraction with my curiosity nurtured. The challenges from day to day are myriad, from the concepts and problem solving, to squeezing out any of the moments for ordinary needs that the day can allow. I can see quite lucidly that my mind is really thriving at this pace, and I feel like I'm among people who have the same interest in learning. To be honest, I am stunned to be in the company of all of the brilliant minds in this cohort of 32 students. Our instructors are superb, the lectures are extremely engaging and thought-provoking, and it all makes for a tremendous environment to gain understanding of concepts that were difficult to grasp without much context. It's really, really great. Every single one of my expectations have been met here, and I'm stupidly fortunate for this opportunity.</p>
+
+<h2 id="tldr">tl;dr</h2>
+
+<p>most of my things are gone and life at hack reactor is fucking sweet.</p>]]></description><link>http://my-ghost-blog.com/traversing-the-binary-data-tree-called-life/</link><guid isPermaLink="false">970b09f8-bdaa-4f7e-a139-66c7bfbb28b5</guid><dc:creator><![CDATA[Adam D Richman]]></dc:creator><pubDate>Mon, 13 Jan 2014 16:33:00 GMT</pubDate></item><item><title><![CDATA[Javascript Data-Structure Instantiation Patterns]]></title><description><![CDATA[<p>earlier this week I learned about the many ways to instantiate a data-structure in javascript. here's what I took away, along with with some examples:</p>
+
+<p><strong>functional</strong>: a single function that instantiates an empty instance of an object that we will store data on. we will access the data with functions that we store as properties on the object - aka methods.</p>
+
+<pre><code>var dude = function(name, currentCity, food){  
+  var newHacker = {};
+
+  newHacker.name = name;
+  newHacker.currentCity = currentCity;
+  newHacker.favoriteFood = food;
+  newHacker.eatAFood = function(){
+    if (newHacker.favoriteFood){
+      console.log(newHacker.name + " is totally chomping on some " + newHacker.favoriteFood + " in " + newHacker.currentCity + "!");
+    }
+  };
+  return newHacker;
+}
+</code></pre>
+
+<pre><code>var Adam = dude('Adam','San Francisco','Freedom Fries');  
+</code></pre>
+
+<pre><code>Adam.eatAFood()  
+</code></pre>
+
+<p><em>Adam is totally chomping on some Freedom Fries in San Francisco!</em></p>
+
+<p><strong>functional-shared</strong>: using a few functions that separate concerns, we can make an object that defines properties and methods to be appended to any data store that we extend to it, thereby making the code more <a href='http://en.wikipedia.org/wiki/Don' t_repeat_yourself">DRY</a>, and allowing for fewer instances of those methods upon instantiating new objects. In the previous example, every time we would instantiate a new 'dude', we would create another instance of the 'eatAFood' method. In the following example, we can have one instance in memory of the 'eatAFood' method, even if we create 250 different people.</p>
+
+<p>first, we need a function to assign the properties of one object to another. this helps when we want to share common methods with objects that have other differing properties. this is a naive implementation of the _.extend method from the must-have javascript utility library, <a href='http://underscorejs.org/' >UnderscoreJS</a>.  </p>
+
+<pre><code>var extend = function(obj1, obj2) {  
+  for (var a in arguments){
+    for (var prop in arguments[a]){
+      obj1[prop] = arguments[a][prop];
+    }
+  }
+  return obj1;
+};
+</code></pre>
+
+<p>now we need a border-line, tastefully sexist example of a few objects that get properties and methods from other objects on instantiation:</p>
+
+<pre><code>var peep = function(name, gender, currentCity, food){  
+  var peepHacker = {};
+
+  peepHacker.name = name;
+  peepHacker.currentCity = currentCity;
+  peepHacker.favoriteFood = food;
+  if (gender === "Male"){
+    extend(peepHacker, dudeHacker);
+  } else if (gender === "Female"){
+    extend(peepHacker, chickHacker);
+  }
+  extend(peepHacker, peopleMethods);
+  return peepHacker;
+};
+
+var dudeHacker = {};  
+dudeHacker.gender = 'dude';  
+dudeHacker.hobby = 'wearing a hoodie'
+
+var chickHacker = {};  
+chickHacker.gender = 'chick';  
+chickHacker.hobby = 'buying shoes'
+
+var peopleMethods = {};  
+peopleMethods.eatAFood = function(){  
+  if (this.favoriteFood){
+    console.log("This " + this.gender + " " + this.name + " is totally chewing on some " + this.favoriteFood + " in " + this.currentCity + " while " + this.hobby + "!");
+  }
+  return true;
+};
+</code></pre>
+
+<pre><code>var Adam = peep('Adam','Male','San Francisco','freedom fries');  
+var KatyPerry = peep('Katy','Female','Los Angeles','carrots');  
+</code></pre>
+
+<pre><code>Adam.eatAFood();  
+</code></pre>
+
+<p><em>This dude Adam is totally chewing on some freedom fries in San Francisco while wearing a hoodie!</em>  </p>
+
+<pre><code>KatyPerry.eatAFood();  
+</code></pre>
+
+<p><em>This chick Katy is totally chewing on some carrots in Los Angeles while buying shoes!</em></p>
+
+<p><strong>prototypal</strong>: a function that uses the Object.create() method to instantiate the new data structure. we pass it an object for data store that was defined outside of the function. We also previously defined the methods of that data store object as it's properties, and did so outside of the function.</p>
+
+<pre><code>var makePeepHacker = function(name, gender, currentCity, food, hobby){  
+    var peep = Object.create(peepHacker(name, gender, currentCity, food, hobby));
+    return peep;
+};
+
+var peepHacker = function(name, gender, currentCity, food, hobby){  
+    var hacker = Object.create(peopleMethods);
+    hacker.name = name;
+    hacker.currentCity = currentCity;
+    hacker.favoriteFood = food;
+    hacker.gender = gender
+    hacker.hobby = hobby;
+    return hacker;
+}
+var peopleMethods = {};  
+peopleMethods.isDoing = function(){  
+  if (this.favoriteFood){
+    console.log("This " + this.gender + " " + this.name + " is totally chewing on some " + this.favoriteFood + " in " + this.currentCity + " while " + this.hobby + "!");
+  }
+  return true;
+};
+</code></pre>
+
+<pre><code>var Chris = makePeepHacker('Chris Christie','dude','Trenton','taylor ham, egg and cheese','causing a traffic jam');  
+var POTUS = makePeepHacker('Barak Obama','dude','Washington, D.C.','chili dogs','botching an epic site launch');  
+</code></pre>
+
+<pre><code>Chris.isDoing();  
+</code></pre>
+
+<p><em>This dude Chris Christie is totally chewing on some taylor ham, egg and cheese in Trenton while causing a traffic jam!</em>  </p>
+
+<pre><code>POTUS.isDoing();  
+</code></pre>
+
+<p><em>This dude Barak Obama is totally chewing on some chili dogs in Washington, D.C. while botching an epic site launch!</em></p>
+
+<p><strong>pseudoclassical</strong>: a function that is named for the class that it creates, and assigns its storage object and data access properties to 'this'. We then define more data access methods as properties of this class's prototype. So, calling the original function will effectively instantiate as a new object with these properties.</p>
+
+<pre><code>var Peep = function(name, species, currentCity, activity, hobby){  
+    this._name = name;
+    this._species = species;
+    this._currentCity = currentCity;
+    this._activity = activity;
+    this._hobby = hobby;
+};
+
+Peep.prototype.isDoing = function(){  
+  console.log("This " + this._species + " " + this._name + " is totally " + this._activity + " in " + this._currentCity + " while " + this._hobby + "!");
+  return true;
+};
+
+Peep.prototype.shoutName = function(){  
+    console.log(this._name.toUpperCase() + "!!!!!!");
+};
+</code></pre>
+
+<pre><code>var Kanye = new Peep('Yeezy','monster','chi-town','spitting a new verse','improving upon his own self-worship');  
+</code></pre>
+
+<pre><code>Kanye.isDoing();  
+</code></pre>
+
+<p><em>This monster Yeezy is totally spitting a new verse in chi-town while improving upon his own self-worship!</em>  </p>
+
+<pre><code>Kanye.shoutName();  
+</code></pre>
+
+<p><em>YEEZY!!!!!!</em></p>]]></description><link>http://my-ghost-blog.com/javascript-data-structure-instantiation-patterns/</link><guid isPermaLink="false">92e4b75d-d164-4f5e-a79a-e9efe8e62129</guid><dc:creator><![CDATA[Adam D Richman]]></dc:creator><pubDate>Mon, 13 Jan 2014 00:15:00 GMT</pubDate></item><item><title><![CDATA[day 3 review]]></title><description><![CDATA[<p>Today we began with a timed self-assessment (45-min) in which we had to re-implement some of the familiar functions in the <a href='http://underscorejs.org/' >UnderscoreJS</a> library from scratch:</p>
+
+<ul>
+<li>a recursive function that accepts a dom node and returns true if it finds 5 or more divs in itself and child nodes (no jQuery allowed).</li>
+<li>an 'each' function, which accepts a collection to iterate over and an iterator that will be called on each item in the collection.</li>
+<li>a 'once' function that accepts a function and executes it once, and then does not allow it to be called again</li>
+<li>a 'defaults' function that accepts an object and optionally any number of objects which contain default key:value pairs to be assigned to the first object if those keys are not already present.</li>
+<li>a 'contains' function which returns true if a given target value is found in a collection</li>
+</ul>
+
+<p>after this we began learning about stacks and the <a href='http://my-ghost-blog.com/2014/01/12/js-data-structure-instantiation-patterns/' >instantiation styles of data stuctures</a>, while also exploring the red-green-refactor approach to writing code (aka <a href='http://en.wikipedia.org/wiki/Test-driven_development' >Test Driven Development</a>). In this, we will write tests for what we want our application to do, and we will write them to fail until we write the code that fixes them.</p>]]></description><link>http://my-ghost-blog.com/day-3-review/</link><guid isPermaLink="false">c0ea6b69-de9d-45f3-b069-4d33ee2c6852</guid><dc:creator><![CDATA[Adam D Richman]]></dc:creator><pubDate>Thu, 09 Jan 2014 08:59:00 GMT</pubDate></item><item><title><![CDATA[taco count]]></title><description><![CDATA[<p>after &lt;24hrs: 4</p>
+
+<p>also, cracked a rib, I'm pretty sure</p>]]></description><link>http://my-ghost-blog.com/taco-count/</link><guid isPermaLink="false">a89c971a-e1d9-415e-98d6-545ea5bc2cb0</guid><dc:creator><![CDATA[Adam D Richman]]></dc:creator><pubDate>Mon, 06 Jan 2014 02:46:00 GMT</pubDate></item><item><title><![CDATA[planes, trains and automobiles]]></title><description><![CDATA[<p>Getting this journey off on the right foot... <br />
+the right foot being the one that slipped on the stairs at 5am and dealt my lower back and kidneys a blow to remember.</p>
+
+<p>This after a night spent trying to find a way out of NYC in time to arrive in SFO monday a.m. <a href='http://www.delta.com/' >Delta</a> cancelled my flight at 10pm, but the website crashed and I couldn't get a hold of an agent until 9 hours later. By that time I'd taken things into my own hands. Booked the only ticket out of Baltimore that would connect me to the bay area (a first class seat for 80,000 miles fuuuucck), booked a ticket on Amtrak out of Manhattan to get me to BWI in time to catch that flight, and put the rest into fate's hands.</p>
+
+<p>Happy to have discovered the <a href='http://flightaware.com/miserymap/' >Misery Map</a>, and with one more segment left on this trip (writing from layover in DTW), this might actually all end fairly well.</p>
+
+<p>Except for the internal bleeding.</p>]]></description><link>http://my-ghost-blog.com/planes-trains-and-automobiles/</link><guid isPermaLink="false">21a81721-18f4-46c8-a8dc-b33bb2662596</guid><dc:creator><![CDATA[Adam D Richman]]></dc:creator><pubDate>Sun, 05 Jan 2014 00:51:00 GMT</pubDate></item></channel></rss>

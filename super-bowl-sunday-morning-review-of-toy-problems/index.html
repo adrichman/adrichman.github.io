@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    
+    <title>super bowl sunday, morning review of toy problems</title>
+    <meta name="description" content="" />
+
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="shortcut icon" href="../favicon.ico">
+
+    
+    <link rel="stylesheet" type="text/css" href="../assets/css/screen.css?v=af08e5c30f" />
+    <link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Noto+Serif:400,700,400italic|Open+Sans:700,400" />
+
+    
+    <meta name="generator" content="Ghost 0.4" />
+<link rel="alternate" type="application/rss+xml" title="refactoring." href="../rss/index.html">
+<link rel="canonical" href="http://my-ghost-blog.com/super-bowl-sunday-morning-review-of-toy-problems/" />
+</head>
+<body class="post-template">
+
+    
+    
+
+
+
+<main class="content" role="main">
+
+    <article class="post">
+
+        
+        <header class="post-header">
+            <a class="blog-logo" href="http://my-ghost-blog.com">
+                
+                    <span class="blog-title">refactoring.</span>
+                
+            </a>
+        </header>
+
+        
+        
+
+            <span class="post-meta"><time datetime="2014-02-02">02 Feb 2014</time> </span>
+
+            <h1 class="post-title">super bowl sunday, morning review of toy problems</h1>
+
+            <section class="post-content">
+                <p>Sundays during my time in San Francisco have revealed a fairly cemented routine of their own. They are the one day I have in a week in which I'm not expected to be at the school on 5th and market. Nonetheless, I usually get a full day's worth of studying on Sundays, but only after doing something Sunday-ish (read: brunch). Today I'm parking at <a href="http://www.yelp.com/biz/vinyl-coffee-and-wine-bar-san-francisco#query:vinyl%20cafe">Vinyl Café</a> on Divisadero with plans to do some serious review of this past week's lessons. I may head down to the school to watch the super bowl with the rest of my class of conflicted coders who are as amped to code as they are un-amped to be missing today's TV extravaganza.</p>
+
+<p>Anyway, let's review. I'll be starting with some "toy problems", just like we start every day at <a href="http://www.hackreactor.com">Hack Reactor</a>. I will only be writing about code and not showing actual code. I do not have permission to share the class's material and, even though these are common toy problems, I do not feel comfortable publishing the exact answers. Also, writing about the solutions is my preferred mechanism for review to reinforce my comprehension. I understand that it may be virtually useless to anybody else.</p>
+
+<p>Before attending HR, I made it a point to get a grasp on recursive solutions to problems. I had read in many places that the mark of someone who has potential has a programmer is that they must be able to understand and intuit recursive programming.</p>
+
+<h2 id="somebackground">some background:  </h2>
+
+<p>A <a href="http://en.wikipedia.org/wiki/Recursion">recursive algorithm</a> essentially invokes itself repeatedly until it hits some base case that will make it stop and, sometimes, return it's whole trace of calculated results from the bottom of the stack and propagate them up to the top. Sometimes, while it recurses, it is storing results in some data structure outside of itself that is held in closure scope (in javascript). Programmers call this a side-effect.</p>
+
+<p>The hallmark of a problem that can benefit from a recursive solution is that it is made up of many small instances of the same, larger problem. By calling itself enough times to solve the large problem, it provides a bulletproof set of instructions that can naturally adapt to the size of its input without any additional logic.</p>
+
+<h2 id="programmingstayhumble">Programming: Stay Humble  </h2>
+
+<p>When I finally felt like I had a grasp on imagining recursive solutions, my confidence as a programmer improved noticeably. Still, there is often many more than one recursive solution to a problem, and at HR, I've come to learn how the feeling that comes with conjuring my first idea for a solution is, sometimes, a liability. In fact, algorithms that depend on using recursion to iterate are often times less efficient than other iterative approaches. When I began to understand that, I started to see how humility was going to play a great role in my ability to program from a practical angle. Sure, the seeming-sophistication of recursion is more obvious, because it wraps its logic inside of what, for me, essentially amounts to a leap of faith. It's cleaner, shorter, and just-plain-cooler to solve things with as few instructions as needed. But it's not always efficient to computation. What matters most, I've learned, is that a solution is judged on its time and space complexity, first and foremost.</p>
+
+<p>This week I began to see some tricks that produce non-trivial improvements in basically the same amount of code. Some examples:</p>
+
+<h2 id="treebreadthfirstfilter">Tree: Breadth-First Filter  </h2>
+
+<p>A function that applies a truth test to the leaves of a tree that traverses <a href="http://en.wikipedia.org/wiki/Breadth-first_search">breadth-first</a> by using a for-loop inside of a while loop. The leaves are are pushed into to a queue in the order of their siblings  - i.e. their children are not visited until all siblings have been. The while loop iterates through the queue, so as long as there is a leaf in the queue, the function will run. What makes this better than a recursive solution? Often times, a recursive solution can require making a copy of its input at every stage so that it doesn't mutate the original input, which other recursive calls may need to operate on in its original state. Comparatively, that means that this looping solution requires far less space.</p>
+
+<p>This was also a great opportunity to learn a valuable precept of breadth-first tree traversals. In the future, I now know that this kind of problem usually calls for the use of a queue. When traversing an entire tree, the time complexity is limited to O(n) at best. A solution requiring more time than that is less efficient and can be ruled out.</p>
+
+<h2 id="summingarray">Summing Array  </h2>
+
+<p>In another problem, we were given an array of size n and asked to calculate the greatest sum of any of its contiguous numbers. The solution must account for the presence of negative numbers. I considered many approaches to this and hoped to land on a recursive solution. What I found is that this would require a lot of space and there was no need to mutate the input or make any copies. By using a for-loop within a for-loop, we can conduct an iteration through the array that starts on index 0, and then repeats itself while i &lt; the length of the array. Each time it repeats, the iteration will begin one index further into the array. We hold the first index as the maximum sum and calculate a new sum that is specific to this round of iteration. When this new sum becomes greater than our max sum, it takes the place of the max sum. Each time the outer for-loop iterates, the new sum is reset to 0 and will begin comparing itself against the last held maximum sum. The time complexity is n squared - an iteration through the array on each step of another iteration of size n.</p>
+
+<h2 id="numbersintoenglish">Numbers into English  </h2>
+
+<p>In this problem, we are given two hashes of key-value pairs: one with the integers as keys 0-20 (increasing by ones) and 20-90 (increasing by tens) whose values are strings holding their english equivalent. <br />
+A second hash features the same pattern for the values ten, hundred, thousand and then increasing up through quintillion with each succeeding value multiplied by 1000.</p>
+
+<p>This problem uses a recursive feature when calling itself on the remainders of modulus calculations. Those remainders are parsed by a step that accounts for numbers 1 - 100. It first checks for a number's presence in the first hash table, and if not, it will divide it by ten and call itself on the remainder. <br />
+Excepting the cases between 100 and 1000, the rest is done fairly easily.</p>
+
+<ol>
+<li><p>calculate a value for the number's current place (1000, 10000, etc...) by multiplying the initial place (1000) by 1000 while the result is less than or equal to the input number.</p></li>
+<li><p>divide the number by it's current place and round to the nearest integer.</p></li>
+<li><p>calculate modulus for the remainder when the number and place don't evenly divide.</p></li>
+<li><p>create a string that is the concatenation of calling itself on the result of the first division and a lookup of the current place in the second hash (words like thousand, million, etc.);</p></li>
+<li><p>finally, invoke the method on the result of the calculation for the remainder (if the remainder wasn't zero). Concatenate this to the end of the string.</p></li>
+</ol>
+
+<p>I am unsure of the time complexity of this algorithm because variance in the number of steps is dependent on many qualities of the input, but not its size (always 1).</p>
+
+<h2 id="functionbind">Function Bind  </h2>
+
+<p>In this problem we are asked to implement the <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/bind">method on the function prototype called 'bind.'</a> This method operates on the function that call it, binds the current context to future calls of the function and applies arguments as parameters in those subsequent calls. The tricky part is that it must accept a function as future context and be able to call that function on new arguments. <br />
+My solution came fairly easily, slicing the the arguments object and treating the first item as a function used as context for future calls. Other slices then deplete the arguments object into the arguments that need to be called on its first call. The function must return a function that applies its initial input on new arguments that will be passed in. While the solution I arrived at didn't seem to have any special need to adjust for time or space complexity, since it didn't require more than a few steps, I was wrong. I planned to separate my arguments with the Array prototype's slice method. Bad idea. While both the slice method and shift/unshift methods require an iteration through the entire length of the array in order to re-index its values, a much more efficient solution is found when considering space complexity. The slice method, by design, creates a copy of the array it is called on, and this is not needed here. The shift and unshift methods mutate the array in its place and require no more space than was initially designated. This isn't all that important when implementing a function like the one we are discussing, but it illustrates well how small decisions can potentially have largely different implications to your application, despite arriving at the same results in the same amount of time.</p>
+
+<h2 id="coinsums">Coin Sums  </h2>
+
+<p>Let's discuss a problem that I found challenging to solve, before even considering time or space complexity.</p>
+
+<p>We are given the values of a number of currencies and are asked that given an arbitrary value for our input, we can count all possible combinations of these coins to arrive at that value. The solutions can contain any number of coins.</p>
+
+<ol>
+<li>We instantiate a counter at 0  </li>
+<li>We create a function that accepts a current index and the input (our total to work towards)  </li>
+<li>We iterate through the set of denominations from greatest to smallest  </li>
+<li>We increment our counter on the base case that we are on the final index to be checked, and the modulus of total and our currently held denomination is 0; Then return.  </li>
+<li>While the total is greater than or equal to 0 (we will be decrementing it), we call this function and pass index-1 and the total.  </li>
+<li>We decrement the total by the current denomination, and this is used to stop our while-loop as it makes subsequent calls for a diminishing total.  </li>
+<li>We invoke the function we built from outside and return our count when the function finishes executing.</li>
+</ol>
+
+<p>An important lesson I learned from the solution lecture for this problem: when overwhelmed by a problem that looks to be solved by recursion, consider visualizing the permutations with a much smaller input set. By observing the pattern, your instructions may reveal themselves.</p>
+
+<h2 id="telephonewords">Telephone Words  </h2>
+
+<p>Lastly, an algorithm to give us all possible permutations of words formed by telephone-number input (of n length, where numbers never change places, but we consider each possible letter that can be represented by each digit). I managed to solve this using a method I frequently try on first approach for solutions that are based on finding permutations. That method usually involves starting with a large structure or number and making it become smaller on each subsequent recursive call. It also involves a usually empty object at the beginning that will accumulate/concatenate results on each subsequent call, eventually being large enough to hit the base case and end the recursive calls. My solution to this worked well but was pretty verbose. The solution presented in class was far more elegant.</p>
+
+<ol>
+<li><p>an array to store our results is instantiated.</p></li>
+<li><p>our input number is split into an array of single integers.</p></li>
+<li><p>we define a recursive function that will take two inputs - the word (which at the beginning is an empty string), and an index (which will increase as we iterate down the array of integers).</p></li>
+<li><p>the base case will stop the recursive calls when the length of our word is as long as our input's length (n).</p></li>
+<li><p>we are given a hash of keys 0-9 with their values being the possible letters to match each digit. we hold the string of 3-4 possible letters that corresponds with the digit we are currently operating on (determined by the index, starting at 0).</p></li>
+<li><p>A for-loop will iterate through each possible letter for the digit at this index.</p></li>
+<li><p>we call the function inside of the for-loop, passing it the result of the word that we passed in at the beginning concatenating with the letter that is currently identified by the for-loop. the second argument is our index, and we increment it by 1 as we pass it, which will make the next set of calls to all possible letters for the digit that is next in line.</p></li>
+<li><p>lastly, return the array in which we stored our results.</p></li>
+</ol>
+
+<h2 id="tldr">TL;DR  </h2>
+
+<p>Forget it, <a href="https://www.google.com/search?q=recursion">just google 'recursion'</a> and have yourself a good laugh. It may take a second to reveal itself, so read the results carefully.</p>
+            </section>
+
+            <footer class="post-footer">
+
+                <section class="author">
+                    <h4>Adam D Richman</h4>
+                    <p>Food-and-Music-loving Software Engineer</p>
+                    <ul class="author-meta clearfix">
+                        <li>San Francisco, CA</li>
+                        <li><a href="http://www.adamrichman.com">http://www.adamrichman.com</a></li>
+                    </ul>
+                </section>
+
+                <section class="share">
+                    <h4>Share this post</h4>
+                    <a class="icon-twitter" href="https://twitter.com/share?text=super%20bowl%20sunday%2C%20morning%20review%20of%20toy%20problems&amp;url=http://my-ghost-blog.com/super-bowl-sunday-morning-review-of-toy-problems/"
+                        onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
+                        <span class="hidden">Twitter</span>
+                    </a>
+                    <a class="icon-facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://my-ghost-blog.com/super-bowl-sunday-morning-review-of-toy-problems/"
+                        onclick="window.open(this.href, 'facebook-share','width=580,height=296');return false;">
+                        <span class="hidden">Facebook</span>
+                    </a>
+                    <a class="icon-google-plus" href="https://plus.google.com/share?url=http://my-ghost-blog.com/super-bowl-sunday-morning-review-of-toy-problems/"
+                       onclick="window.open(this.href, 'google-plus-share', 'width=490,height=530');return false;">
+                        <span class="hidden">Google+</span>
+                    </a>
+                </section>
+
+            </footer>
+
+        
+
+    </article>
+
+</main>
+
+
+    <footer class="site-footer">
+        <a class="subscribe icon-feed" href="http://my-ghost-blog.com/rss/"><span class="tooltip">Subscribe!</span></a>
+        <div class="inner">
+             <section class="copyright">All content copyright <a href="http://my-ghost-blog.com/">refactoring.</a> &copy; 2014 &bull; All rights reserved.</section>
+             <section class="poweredby">Proudly published with <a class="icon-ghost" href="https://ghost.org">Ghost</a></section>
+        </div>
+    </footer>
+
+    
+    <script src="../public/jquery.js?v=af08e5c30f"></script>
+
+    
+    <script type="text/javascript" src="../assets/js/jquery.fitvids.js?v=af08e5c30f"></script>
+    <script type="text/javascript" src="../assets/js/index.js?v=af08e5c30f"></script>
+
+</body>
+</html>

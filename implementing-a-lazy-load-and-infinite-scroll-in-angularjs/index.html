@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    
+    <title>implementing a lazy load and infinite scroll in AngularJS</title>
+    <meta name="description" content="" />
+
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="shortcut icon" href="../favicon.ico">
+
+    
+    <link rel="stylesheet" type="text/css" href="../assets/css/screen.css?v=af08e5c30f" />
+    <link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Noto+Serif:400,700,400italic|Open+Sans:700,400" />
+
+    
+    <meta name="generator" content="Ghost 0.4" />
+<link rel="alternate" type="application/rss+xml" title="refactoring." href="../rss/index.html">
+<link rel="canonical" href="http://my-ghost-blog.com/implementing-a-lazy-load-and-infinite-scroll-in-angularjs/" />
+</head>
+<body class="post-template">
+
+    
+    
+
+
+
+<main class="content" role="main">
+
+    <article class="post">
+
+        
+        <header class="post-header">
+            <a class="blog-logo" href="http://my-ghost-blog.com">
+                
+                    <span class="blog-title">refactoring.</span>
+                
+            </a>
+        </header>
+
+        
+        
+
+            <span class="post-meta"><time datetime="2014-05-12">12 May 2014</time> </span>
+
+            <h1 class="post-title">implementing a lazy load and infinite scroll in AngularJS</h1>
+
+            <section class="post-content">
+                <p>I am planning to refactor this into a more simple, modular directive, but before doing so, I just want to describe how I approached implementing a lazy load and infinite scroll on a project I picked up. It's a dashboard for tracking individual and group progress. <em>(Sidenote: I also would like to modularize it into an easy, near-instant dashboard library. The version I'm currently building interfaces with 2 external APIs (<a href="http://github.com">Github</a> and <a href="http://keen.io">Keen.io</a>), as well as an API that I implemented in a nodeJS server.)</em></p>
+
+<p>This implemenation is dependent on an API that responds once with the entire data set that will need to be fetched. Originally, I designed the api to respond to multiple calls from the client because I thought that returning too much would negetivley impact browser performance. But, that was naive. The browser can handle this without breaking a sweat.</p>
+
+<pre><code>///////////////////////
+// listController.js //
+///////////////////////
+
+angular.module('myApp').controller('listController', ['$scope','dataService','$timeout',  function($scope, dataService, $timeout){
+
+  $scope.data = {};
+  $scope.spinner = {};
+  $scope.data.mongo = [];
+
+  // used to show and hide the table element that will display the data
+  $scope.isLoading = true;
+
+  // used to manipulate the element containing the spinner once the data table
+  // is displayed
+  $scope.spinner.hide = false;
+
+  // this will store the bulk of the data from the initial response.
+  // then we will splice items off as needed
+  var cache = { data: { mongo: [] } };
+
+  var getData = function(){
+
+    // check that the view-bound data set is empty
+    if ($scope.data.mongo.length &lt; 1){
+
+      dataService.getData()
+        .then(function(res){
+
+          // display the table element
+          $scope.isLoading = false;
+
+          // declare the $timeout with a reference in order to cancel
+          // it later. the $timeout invokes the AngularJS digest cycle
+          // and will update the view bound to the data
+          var appendDataTimer = $timeout(function(){
+            cache.data.mongo = res.data.mongo;
+
+            // splice some data to append to the view
+            $scope.data.mongo = $scope.data.mongo.concat(cache.data.mongo.splice(0, 12));
+
+            // assign some other data hashes from the response to the $scope
+            // so they can be referenced in the view
+            $scope.data.gh = res.data.gh;
+            $scope.data.keen = res.data.keen;
+
+            // remove the spinner from the view
+            $scope.spinner.hide = true;
+
+          },150);
+
+          // invoke the timeout and remove it when the promise resolves
+          appendDataTimer.then(function(){
+            $timeout.cancel(appendDataTimer);
+          })
+      });
+
+    } else {
+      // the view contained data, so continue to splice from the cache and add // to the view data
+      $scope.data.mongo = $scope.data.mongo.concat(cache.data.mongo.splice(0, 12));
+
+      // delays feel more 'magical'
+      $timeout(function(){
+        $scope.spinner.hide = true;
+      },1000);
+    }
+  };
+
+  // to be invoked on the scroll event in our directive, which will be
+  // triggered once we scroll through some data that is already displayed
+  $scope.loadMore = function(){
+    $scope.spinner.hide = false;
+    var loadTimer = $timeout(function(){
+      getData();
+    }, 2000)
+    loadTimer.then(function(){
+      $timeout.cancel(loadTimer);
+    });
+  };
+
+  // invoke the retrieval of data
+  getData();
+}])
+</code></pre>
+
+<pre><code>/////////////////////////////////////////
+// _list_partial.html (without styles) //
+/////////////////////////////////////////
+
+&lt;table class="table table-striped table-hover" ng-if="!isLoading" when-scrolled="loadMore()"&gt;  
+   &lt;thead&gt;
+     &lt;tr&gt;
+       &lt;td&gt;NAME&lt;/td&gt;
+       &lt;td&gt;STATS&lt;/td&gt;
+       &lt;td&gt;COMMENTS&lt;/td&gt;
+     &lt;/tr&gt;
+   &lt;/thead&gt;
+    &lt;tbody&gt;
+      &lt;tr ng-repeat="datum in data.mongo"&gt;
+        &lt;td&gt;
+          &lt;span&gt;{{ datum.First }} {{ datum.Last }}&lt;/span&gt;&lt;br&gt;
+        &lt;/td&gt;
+        &lt;td class="cohort-stats-col cohort-score"&gt; some stats &lt;/td&gt;
+        &lt;td &gt;&lt;textarea rows="3"&gt;{{ datum.comments }}&lt;/textarea&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+    &lt;/tbody&gt;
+  &lt;/table&gt;
+  &lt;div ng-hide="spinner.hide"&gt;
+    &lt;img src="img/spinner.gif"&gt;
+  &lt;/div&gt;
+</code></pre>
+
+<pre><code>//////////////////////////
+// lazyLoadDirective.js //
+//////////////////////////
+
+angular.module('myApp')  
+.directive('whenScrolled', function($window, $timeout) {
+  return {
+    restrict: "A",
+    link: function(scope, element, attr) {
+      var top = angular.element($window)[0].screenTop;
+      var origHeight = angular.element($window)[0].screen.height;
+      var height = (origHeight * 0.9);
+
+      // bind the digest cycle to be triggered by the scroll event
+      // when it exceeds a threshold
+      angular.element($window).bind('scroll', function() {
+        if (angular.element($window)[0].scrollY &gt;= (height)) {
+
+          // show the spinner when triggered
+          scope.spinner.hide = !scope.spinner.hide;
+
+          angular.element($window)[0].requestAnimationFrame(function(){
+            // invoke the function passed into the 'whenScrolled' attribute
+            scope.$apply(attr.whenScrolled);
+
+            // increment the threshold
+            height += (origHeight * 1.5);
+          })
+        }
+      });
+    }
+  }
+})
+</code></pre>
+            </section>
+
+            <footer class="post-footer">
+
+                <section class="author">
+                    <h4>Adam D Richman</h4>
+                    <p>Food-and-Music-loving Software Engineer</p>
+                    <ul class="author-meta clearfix">
+                        <li>San Francisco, CA</li>
+                        <li><a href="http://www.adamrichman.com">http://www.adamrichman.com</a></li>
+                    </ul>
+                </section>
+
+                <section class="share">
+                    <h4>Share this post</h4>
+                    <a class="icon-twitter" href="https://twitter.com/share?text=implementing%20a%20lazy%20load%20and%20infinite%20scroll%20in%20AngularJS&amp;url=http://my-ghost-blog.com/implementing-a-lazy-load-and-infinite-scroll-in-angularjs/"
+                        onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
+                        <span class="hidden">Twitter</span>
+                    </a>
+                    <a class="icon-facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://my-ghost-blog.com/implementing-a-lazy-load-and-infinite-scroll-in-angularjs/"
+                        onclick="window.open(this.href, 'facebook-share','width=580,height=296');return false;">
+                        <span class="hidden">Facebook</span>
+                    </a>
+                    <a class="icon-google-plus" href="https://plus.google.com/share?url=http://my-ghost-blog.com/implementing-a-lazy-load-and-infinite-scroll-in-angularjs/"
+                       onclick="window.open(this.href, 'google-plus-share', 'width=490,height=530');return false;">
+                        <span class="hidden">Google+</span>
+                    </a>
+                </section>
+
+            </footer>
+
+        
+
+    </article>
+
+</main>
+
+
+    <footer class="site-footer">
+        <a class="subscribe icon-feed" href="http://my-ghost-blog.com/rss/"><span class="tooltip">Subscribe!</span></a>
+        <div class="inner">
+             <section class="copyright">All content copyright <a href="http://my-ghost-blog.com/">refactoring.</a> &copy; 2014 &bull; All rights reserved.</section>
+             <section class="poweredby">Proudly published with <a class="icon-ghost" href="https://ghost.org">Ghost</a></section>
+        </div>
+    </footer>
+
+    
+    <script src="../public/jquery.js?v=af08e5c30f"></script>
+
+    
+    <script type="text/javascript" src="../assets/js/jquery.fitvids.js?v=af08e5c30f"></script>
+    <script type="text/javascript" src="../assets/js/index.js?v=af08e5c30f"></script>
+
+</body>
+</html>

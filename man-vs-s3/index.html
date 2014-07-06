@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    
+    <title>Man Vs. S3</title>
+    <meta name="description" content="" />
+
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="shortcut icon" href="../favicon.ico">
+
+    
+    <link rel="stylesheet" type="text/css" href="../assets/css/screen.css?v=af08e5c30f" />
+    <link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Noto+Serif:400,700,400italic|Open+Sans:700,400" />
+
+    
+    <meta name="generator" content="Ghost 0.4" />
+<link rel="alternate" type="application/rss+xml" title="refactoring." href="../rss/index.html">
+<link rel="canonical" href="http://my-ghost-blog.com/man-vs-s3/" />
+</head>
+<body class="post-template">
+
+    
+    
+
+
+
+<main class="content" role="main">
+
+    <article class="post">
+
+        
+        <header class="post-header">
+            <a class="blog-logo" href="http://my-ghost-blog.com">
+                
+                    <span class="blog-title">refactoring.</span>
+                
+            </a>
+        </header>
+
+        
+        
+
+            <span class="post-meta"><time datetime="2014-02-28">28 Feb 2014</time> </span>
+
+            <h1 class="post-title">Man Vs. S3</h1>
+
+            <section class="post-content">
+                <p><a href="https://gist.github.com/adrichman/e550885f6011f37d6bd3">Solution Gist: <a href='https://gist.github.com/adrichman/e550885f6011f37d6bd3'>https://gist.github.com/adrichman/e550885f6011f37d6bd3</a></a></p>
+
+<h5 id="formorehoursthaniliketoadmitistruggledtofreeourselvesfromawsss3sdkhttpawsamazoncomsdkfornodejs">For more hours than I like to admit, I struggled to free ourselves from <a href="http://aws.amazon.com/sdkfornodejs/">AWS's S3 SDK</a>.</h5>
+
+<p>We were trying to facilitate direct uploads from our client to our S3 bucket, but without exposing any credentials that would need to be present on the client side. The answer to doing this requires that you deliver the client a temporary, signed URL or policy that is generated on your own server and returned to the client in order to accompany the payload to S3. Unfortunately this is where the SDK stopped working for us.</p>
+
+<p>I scoured the web for days in search of solutions and found myriad similar stack overflow questions and blog entries on this very challenge. Still, I came up empty handed when I attempted to integrate many of the code examples, I presume because Amazon has since changed their API, or because of some other finicky detail that I wasn't identifying.  I suppose that this kind of request just screams CORS and I understand why. I finally found my way to code that worked for us after finding a few posts that shined some meaningful light on the solving this problem. They are <a href="http://stackoverflow.com/questions/11240127/uploading-image-to-amazon-s3-with-html-javascript-jquery-with-ajax-request-n/12378395#12378395">here</a>, <a href="http://bencoe.tumblr.com/post/30685403088/browser-side-amazon-s3-uploads-using-cors">here</a> and <a href="http://stackoverflow.com/questions/18476217/amazon-s3-post-api-and-signing-a-policy-with-nodejs">here</a>.</p>
+
+<p>My takeaways upon succeeding:</p>
+
+<ul>
+<li><p>the order of your headers REALLY matters to amazon. This is not evident in their documentation, which at times is contradictory.</p></li>
+<li><p>getting to know <a href="https://developer.mozilla.org/en-US/docs/Web/API/FormData">HTML5's FormData object</a> was crucial for appending our policy to the payload.</p></li>
+</ul>
+
+<h4 id="checkoutmysolutionhttpsgistgithubcomadrichmane550885f6011f37d6bd3">check out my <a href="https://gist.github.com/adrichman/e550885f6011f37d6bd3">solution</a></h4>
+
+<p>Ultimately, we reverted to using Amazon's SDK and piping uploads from the client through our server on their way to s3. Solving this problem with our web form was not really going to be sufficient because our client is an Angular / Ionic / Cordova mobile app, and this simple upload form was going to require some refactoring and trial-and-error that would cost us precious time that we didn't have. With a little more time, we can change that and the client will retrieve our dynamically generated, signed-policy that will give it temporary credentials for direct upload to our S3 bucket.</p>
+
+<p>Hopefully someone will find this post some day in the future that is soon enough for it to be helpful - before Amazon changes their API.</p>
+            </section>
+
+            <footer class="post-footer">
+
+                <section class="author">
+                    <h4>Adam D Richman</h4>
+                    <p>Food-and-Music-loving Software Engineer</p>
+                    <ul class="author-meta clearfix">
+                        <li>San Francisco, CA</li>
+                        <li><a href="http://www.adamrichman.com">http://www.adamrichman.com</a></li>
+                    </ul>
+                </section>
+
+                <section class="share">
+                    <h4>Share this post</h4>
+                    <a class="icon-twitter" href="https://twitter.com/share?text=Man%20Vs.%20S3&amp;url=http://my-ghost-blog.com/man-vs-s3/"
+                        onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
+                        <span class="hidden">Twitter</span>
+                    </a>
+                    <a class="icon-facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://my-ghost-blog.com/man-vs-s3/"
+                        onclick="window.open(this.href, 'facebook-share','width=580,height=296');return false;">
+                        <span class="hidden">Facebook</span>
+                    </a>
+                    <a class="icon-google-plus" href="https://plus.google.com/share?url=http://my-ghost-blog.com/man-vs-s3/"
+                       onclick="window.open(this.href, 'google-plus-share', 'width=490,height=530');return false;">
+                        <span class="hidden">Google+</span>
+                    </a>
+                </section>
+
+            </footer>
+
+        
+
+    </article>
+
+</main>
+
+
+    <footer class="site-footer">
+        <a class="subscribe icon-feed" href="http://my-ghost-blog.com/rss/"><span class="tooltip">Subscribe!</span></a>
+        <div class="inner">
+             <section class="copyright">All content copyright <a href="http://my-ghost-blog.com/">refactoring.</a> &copy; 2014 &bull; All rights reserved.</section>
+             <section class="poweredby">Proudly published with <a class="icon-ghost" href="https://ghost.org">Ghost</a></section>
+        </div>
+    </footer>
+
+    
+    <script src="../public/jquery.js?v=af08e5c30f"></script>
+
+    
+    <script type="text/javascript" src="../assets/js/jquery.fitvids.js?v=af08e5c30f"></script>
+    <script type="text/javascript" src="../assets/js/index.js?v=af08e5c30f"></script>
+
+</body>
+</html>

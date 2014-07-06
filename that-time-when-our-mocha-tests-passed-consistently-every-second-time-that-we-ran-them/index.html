@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    
+    <title>that time when our mocha tests passed consistently... every second time that we ran them</title>
+    <meta name="description" content="" />
+
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="shortcut icon" href="../favicon.ico">
+
+    
+    <link rel="stylesheet" type="text/css" href="../assets/css/screen.css?v=af08e5c30f" />
+    <link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Noto+Serif:400,700,400italic|Open+Sans:700,400" />
+
+    
+    <meta name="generator" content="Ghost 0.4" />
+<link rel="alternate" type="application/rss+xml" title="refactoring." href="../rss/index.html">
+<link rel="canonical" href="http://my-ghost-blog.com/that-time-when-our-mocha-tests-passed-consistently-every-second-time-that-we-ran-them/" />
+</head>
+<body class="post-template">
+
+    
+    
+
+
+
+<main class="content" role="main">
+
+    <article class="post">
+
+        
+        <header class="post-header">
+            <a class="blog-logo" href="http://my-ghost-blog.com">
+                
+                    <span class="blog-title">refactoring.</span>
+                
+            </a>
+        </header>
+
+        
+        
+
+            <span class="post-meta"><time datetime="2014-03-03">03 Mar 2014</time> </span>
+
+            <h1 class="post-title">that time when our mocha tests passed consistently... every second time that we ran them</h1>
+
+            <section class="post-content">
+                <p>We had a thorough suite of tests for our node/express server and mongodb test database, and we were delighted that they were putting our app through the paces. We were even happier that we'd tweaked our app's code until all of them passed. But we were befuddled when the tests consistently failed every second time that we ran them.</p>
+
+<h2 id="apeakinsideourcode">A peak inside our code  </h2>
+
+<pre><code>describe('Video Routes API', function () {
+
+  var server;
+
+  before(function (done) {
+    process.env['MONGOHQ_URL']="mongodb://ourApp:ourPWD@subdomain.mongohq.com:10042/ourTestDB";
+    server = child.exec('node web.js &amp;', { killSignal: "SIGTERM"}, function(err, stdout, stderr){
+      console.log('something', err, stdout,stderr);
+      done();
+    });
+  });
+  after(function(done){
+    server.kill();
+    done();
+  });
+}
+</code></pre>
+
+<p>What we were hoping to achieve here was the ability to spin up our server instance from inside of the test suite. This way we could set our environmental variable for the database to direct connections to our remote test database. Also, this would provide for a less granular set of integration tests.</p>
+
+<p>We used the child.exec() method because we expected it to asynchronously start our server from the shell, and return a callback when it was ready.</p>
+
+<h2 id="theresults">The results:  </h2>
+
+<p>First time: All tests pass</p>
+
+<p>Second time: <br />
+    0 passing (8s)
+    6 failing</p>
+
+<pre><code>1) User API Video Routes API GET /clips should return 200:
+   Error: timeout of 2000ms exceeded
+    at null.&lt;anonymous&gt; (/usr/local/lib/node_modules/mocha/lib/runnable.js:175:14)
+    at Timer.listOnTimeout [as ontimeout] (timers.js:110:15)
+...
+
+6) User API Video Routes API should return 200 upon reciept of favorite of a video:
+   Error: connect ECONNREFUSED
+    at errnoException (net.js:901:11)
+    at Object.afterConnect [as oncomplete] (net.js:892:19)
+</code></pre>
+
+<p>We were wrong. A few things were fairly obvious:</p>
+
+<ol>
+<li><p>the callback was never being called!</p></li>
+<li><p>our tests were unable to connect to our server.</p></li>
+</ol>
+
+<p>Fine, but why only every other time? We hypothetsized that our server was not hanging up after our tests were done running, but it didn't make a whole lot of sense that it would be unavailable for reconnections.</p>
+
+<h2 id="resolution">Resolution  </h2>
+
+<p>After a long, painful exploration of the native child process functions in nodejs (really, I am still quite grateful for the opportunity to have become familiarized), we understood that our callback wasn't being called because there was never any "finish" to the buffered output of a still-running server. child.exec() was not the method we needed. Sure enough, we verified that our server process was still running after the tests ran, and on the next subsequent attempt, our tests connected and passed. Apparently our server.kill() method wasn't getting the job done for us. As it turns out, child.exec() isn't going to be our friend for that method either.</p>
+
+<p>The answer was two-fold:</p>
+
+<ol>
+<li><p>substitute child.exec() with the synchronous child.spawn().</p></li>
+<li><p>implement a timeout before the tests run, just to give the server some time to get up and running before we try to test it.</p></li>
+</ol>
+
+<p>It's kind of a hacky solution, we know. In a world where we had more time with this project, we would have explored having our server emit a 'ready' message for our tests to listen to. For now, though, this worked just fine:  </p>
+
+<pre><code>describe('Video Routes API', function () {  
+  var server;
+
+  before(function (done) {
+    process.env['MONGOHQ_URL']="mongodb://ourApp:ourPWD@subdomain.mongohq.com:10042/ourTestDB";
+    server = child.spawn('/usr/local/bin/node', ['/Users/path/to/ourApp/web.js'],  {detached: true, stdio: [ 0, out, err ]});
+    setTimeout(done, 1000);
+  });
+  after(function(done){
+    server.kill();
+    done();
+  });
+}
+</code></pre>
+
+<p>Now our tests run properly every single time, and they pass to-boot!</p>
+
+<h2 id="tldr">TL;DR  </h2>
+
+<p>Consider child.spawn() when you need to start a different program from inside of your running, node program. And don't presume that your server is ready for connections immediately after instantiating it!</p>
+            </section>
+
+            <footer class="post-footer">
+
+                <section class="author">
+                    <h4>Adam D Richman</h4>
+                    <p>Food-and-Music-loving Software Engineer</p>
+                    <ul class="author-meta clearfix">
+                        <li>San Francisco, CA</li>
+                        <li><a href="http://www.adamrichman.com">http://www.adamrichman.com</a></li>
+                    </ul>
+                </section>
+
+                <section class="share">
+                    <h4>Share this post</h4>
+                    <a class="icon-twitter" href="https://twitter.com/share?text=that%20time%20when%20our%20mocha%20tests%20passed%20consistently...%20every%20second%20time%20that%20we%20ran%20them&amp;url=http://my-ghost-blog.com/that-time-when-our-mocha-tests-passed-consistently-every-second-time-that-we-ran-them/"
+                        onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
+                        <span class="hidden">Twitter</span>
+                    </a>
+                    <a class="icon-facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://my-ghost-blog.com/that-time-when-our-mocha-tests-passed-consistently-every-second-time-that-we-ran-them/"
+                        onclick="window.open(this.href, 'facebook-share','width=580,height=296');return false;">
+                        <span class="hidden">Facebook</span>
+                    </a>
+                    <a class="icon-google-plus" href="https://plus.google.com/share?url=http://my-ghost-blog.com/that-time-when-our-mocha-tests-passed-consistently-every-second-time-that-we-ran-them/"
+                       onclick="window.open(this.href, 'google-plus-share', 'width=490,height=530');return false;">
+                        <span class="hidden">Google+</span>
+                    </a>
+                </section>
+
+            </footer>
+
+        
+
+    </article>
+
+</main>
+
+
+    <footer class="site-footer">
+        <a class="subscribe icon-feed" href="http://my-ghost-blog.com/rss/"><span class="tooltip">Subscribe!</span></a>
+        <div class="inner">
+             <section class="copyright">All content copyright <a href="http://my-ghost-blog.com/">refactoring.</a> &copy; 2014 &bull; All rights reserved.</section>
+             <section class="poweredby">Proudly published with <a class="icon-ghost" href="https://ghost.org">Ghost</a></section>
+        </div>
+    </footer>
+
+    
+    <script src="../public/jquery.js?v=af08e5c30f"></script>
+
+    
+    <script type="text/javascript" src="../assets/js/jquery.fitvids.js?v=af08e5c30f"></script>
+    <script type="text/javascript" src="../assets/js/index.js?v=af08e5c30f"></script>
+
+</body>
+</html>

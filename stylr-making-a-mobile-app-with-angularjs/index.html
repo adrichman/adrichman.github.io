@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    
+    <title>Stylr: making a mobile app with AngularJS</title>
+    <meta name="description" content="" />
+
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="shortcut icon" href="../favicon.ico">
+
+    
+    <link rel="stylesheet" type="text/css" href="../assets/css/screen.css?v=af08e5c30f" />
+    <link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Noto+Serif:400,700,400italic|Open+Sans:700,400" />
+
+    
+    <meta name="generator" content="Ghost 0.4" />
+<link rel="alternate" type="application/rss+xml" title="refactoring." href="../rss/index.html">
+<link rel="canonical" href="http://my-ghost-blog.com/stylr-making-a-mobile-app-with-angularjs/" />
+</head>
+<body class="post-template">
+
+    
+    
+
+
+
+<main class="content" role="main">
+
+    <article class="post">
+
+        
+        <header class="post-header">
+            <a class="blog-logo" href="http://my-ghost-blog.com">
+                
+                    <span class="blog-title">refactoring.</span>
+                
+            </a>
+        </header>
+
+        
+        
+
+            <span class="post-meta"><time datetime="2014-04-01">01 Apr 2014</time> </span>
+
+            <h1 class="post-title">Stylr: making a mobile app with AngularJS</h1>
+
+            <section class="post-content">
+                <p>{% vimeo 99956183 %}</p>
+
+<p><a href="https://github.com/adrichman/stylr">Stylr</a> is a mobile app that, for lack of a better explanation, is probably best referred to as "Tinder for fashion". My friend <a href="https://github.com/brendonv">Brendon Verissimo</a> and I conceived and developed it. The idea behind the app is that users can tell the app about their tastes, and the app will track their preferences, eventually revealing their most prevelent style taste, and then go on to recommend actual fashion items to the user.</p>
+
+<p>The stack for Stylr consists of:</p>
+
+<ul>
+<li><p>mongoDB instance, hosted by mongoLab</p></li>
+<li><p>NodeJS / Express server, hosted on a Digital Ocean droplet</p></li>
+<li><p>AngularJS / Ionic Framework web app</p></li>
+<li><p>Apache Cordova to wrap the app in a mobile native container</p></li>
+</ul>
+
+<p>The performance of the web app on a phone, in relationship to native apps, is pretty remarkable. The <a href="http://ionicframework.com/">ionic framework</a> is basically bootstrap for your mobile web app. While we didn't use many of its features, it specializes in recreating familar native views, flows and gestures, all in an AngularJS app that's running in a webkit browser.</p>
+
+<p>One of the key components of Ionic's framework is the <a href="https://github.com/angular-ui/ui-router">Angular-UI Router</a>. Once I got to know this module, I basically vowed to never again use Angular's native $routeProvider. The Angular-UI Router allows for nested states, which makes it very easy to implement views as parents and children, allowing for a pattern that much closer suits the way we think about views. It gives the developer a stateProvider, through which states can be accessed through various means.</p>
+
+<p>Perhaps the most difficult challenge during the developemnt of Stylr was implementing the horizontal swipe-cards. I started with an old example of vertically swiped cards that behaved quite differently. A few days of tweaking and I was able to dictate the behaviors I was looking for - namely, the proper interpretation of the user's intent, and the corresponding actions. For instance:</p>
+
+<ul>
+<li><p>if the user is moving at an accelerating velocity at the moment of release, they likely intent to toss this card. So this must trigger an animation that continues the current trajectory of the card view. It must also trigger the logic to pop the last card off the stack of cards to be played.</p></li>
+<li><p>if the user is not accelerating at the moment of releasing their finger, it's likely that they intend to reconsider their own intent. The appropriate action here was to snap the card back to it's starting place, and be sure not to register any preference from the user.</p></li>
+</ul>
+
+<p>The original card interaction demo has since been iterated on (check the pull requests), and can be found <a href="https://github.com/driftyco/ionic-contrib-swipe-cards">here</a>.</p>
+            </section>
+
+            <footer class="post-footer">
+
+                <section class="author">
+                    <h4>Adam D Richman</h4>
+                    <p>Food-and-Music-loving Software Engineer</p>
+                    <ul class="author-meta clearfix">
+                        <li>San Francisco, CA</li>
+                        <li><a href="http://www.adamrichman.com">http://www.adamrichman.com</a></li>
+                    </ul>
+                </section>
+
+                <section class="share">
+                    <h4>Share this post</h4>
+                    <a class="icon-twitter" href="https://twitter.com/share?text=Stylr%3A%20making%20a%20mobile%20app%20with%20AngularJS&amp;url=http://my-ghost-blog.com/stylr-making-a-mobile-app-with-angularjs/"
+                        onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
+                        <span class="hidden">Twitter</span>
+                    </a>
+                    <a class="icon-facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://my-ghost-blog.com/stylr-making-a-mobile-app-with-angularjs/"
+                        onclick="window.open(this.href, 'facebook-share','width=580,height=296');return false;">
+                        <span class="hidden">Facebook</span>
+                    </a>
+                    <a class="icon-google-plus" href="https://plus.google.com/share?url=http://my-ghost-blog.com/stylr-making-a-mobile-app-with-angularjs/"
+                       onclick="window.open(this.href, 'google-plus-share', 'width=490,height=530');return false;">
+                        <span class="hidden">Google+</span>
+                    </a>
+                </section>
+
+            </footer>
+
+        
+
+    </article>
+
+</main>
+
+
+    <footer class="site-footer">
+        <a class="subscribe icon-feed" href="http://my-ghost-blog.com/rss/"><span class="tooltip">Subscribe!</span></a>
+        <div class="inner">
+             <section class="copyright">All content copyright <a href="http://my-ghost-blog.com/">refactoring.</a> &copy; 2014 &bull; All rights reserved.</section>
+             <section class="poweredby">Proudly published with <a class="icon-ghost" href="https://ghost.org">Ghost</a></section>
+        </div>
+    </footer>
+
+    
+    <script src="../public/jquery.js?v=af08e5c30f"></script>
+
+    
+    <script type="text/javascript" src="../assets/js/jquery.fitvids.js?v=af08e5c30f"></script>
+    <script type="text/javascript" src="../assets/js/index.js?v=af08e5c30f"></script>
+
+</body>
+</html>

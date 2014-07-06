@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    
+    <title>code review</title>
+    <meta name="description" content="" />
+
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="shortcut icon" href="../favicon.ico">
+
+    
+    <link rel="stylesheet" type="text/css" href="../assets/css/screen.css?v=af08e5c30f" />
+    <link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Noto+Serif:400,700,400italic|Open+Sans:700,400" />
+
+    
+    <meta name="generator" content="Ghost 0.4" />
+<link rel="alternate" type="application/rss+xml" title="refactoring." href="../rss/index.html">
+<link rel="canonical" href="http://my-ghost-blog.com/code-review/" />
+</head>
+<body class="post-template">
+
+    
+    
+
+
+
+<main class="content" role="main">
+
+    <article class="post">
+
+        
+        <header class="post-header">
+            <a class="blog-logo" href="http://my-ghost-blog.com">
+                
+                    <span class="blog-title">refactoring.</span>
+                
+            </a>
+        </header>
+
+        
+        
+
+            <span class="post-meta"><time datetime="2014-01-03">03 Jan 2014</time> </span>
+
+            <h1 class="post-title">code review</h1>
+
+            <section class="post-content">
+                <p>In the midst of the emotional gauntlet of the recent past, I think I actually managed to learn some stuff. I am reminiscing about my first day at <a href="http://www.ad60.com">AD60</a> in October. It took almost the entire day to get set up with 4 Windows IE VirtualBoxes because our client needed support for IE8, ruby, git, and get rails and mysql playing nicely on the mac mini. I remember my friend and boss Dan sitting me down, giving me a list of everything I need to setup my dev environment, then getting access to the repo on <a href="http://www.github.com/adrichman">github</a> and forking it in order to get cracking at some <a href="https://www.atlassian.com/software/jira">JIRA tickets</a>. Dan assigned me a ticket and came over to explain in further detail what needed to be done. I jumped right in to the code and... holy shit I did not know what the fuck I was looking at. My rails tutorials did not prepare me for so many models, controllers and views. I have a terrible memory of details (and generalities), so, from referencing github I am reminded that my first contribution to the code was to write a custom validation. It felt great when I finished it, and it felt less great 2 months later when I learned I had screwed it up and was calculating the cumulative file size of every instance of this particular model in the database, as opposed to the instances that belonged to the user who is currently logged in (duh). But really, writing a statement that actually didn't piss off rails felt like enough of an achievment at the time.</p>
+
+<p>I only worked that job for a couple months before I had to leave and get ready to go to SF, but I must say, I reflected during my last week in the office and marvelled at how familiar I had become with the product, all of the corresponding models and controllers (although I don't think I ever got used to HAML). The education they provided me so graciously was invaluable at codifying my understanding of OOP and the rails framework. I even grew to not hate ruby, despite it's loosy goosy joke of a syntax. Are those arguments? I couldn't tell. They're just floating there without any parenthetical notation.</p>
+
+<p>Oh and then there was the entire week (it seemed) of trying to rename files hosted on S3. Don't bother trying. Seriously. Just rename it on the client side and move the fuck on with your life.</p>
+            </section>
+
+            <footer class="post-footer">
+
+                <section class="author">
+                    <h4>Adam D Richman</h4>
+                    <p>Food-and-Music-loving Software Engineer</p>
+                    <ul class="author-meta clearfix">
+                        <li>San Francisco, CA</li>
+                        <li><a href="http://www.adamrichman.com">http://www.adamrichman.com</a></li>
+                    </ul>
+                </section>
+
+                <section class="share">
+                    <h4>Share this post</h4>
+                    <a class="icon-twitter" href="https://twitter.com/share?text=code%20review&amp;url=http://my-ghost-blog.com/code-review/"
+                        onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
+                        <span class="hidden">Twitter</span>
+                    </a>
+                    <a class="icon-facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://my-ghost-blog.com/code-review/"
+                        onclick="window.open(this.href, 'facebook-share','width=580,height=296');return false;">
+                        <span class="hidden">Facebook</span>
+                    </a>
+                    <a class="icon-google-plus" href="https://plus.google.com/share?url=http://my-ghost-blog.com/code-review/"
+                       onclick="window.open(this.href, 'google-plus-share', 'width=490,height=530');return false;">
+                        <span class="hidden">Google+</span>
+                    </a>
+                </section>
+
+            </footer>
+
+        
+
+    </article>
+
+</main>
+
+
+    <footer class="site-footer">
+        <a class="subscribe icon-feed" href="http://my-ghost-blog.com/rss/"><span class="tooltip">Subscribe!</span></a>
+        <div class="inner">
+             <section class="copyright">All content copyright <a href="http://my-ghost-blog.com/">refactoring.</a> &copy; 2014 &bull; All rights reserved.</section>
+             <section class="poweredby">Proudly published with <a class="icon-ghost" href="https://ghost.org">Ghost</a></section>
+        </div>
+    </footer>
+
+    
+    <script src="../public/jquery.js?v=af08e5c30f"></script>
+
+    
+    <script type="text/javascript" src="../assets/js/jquery.fitvids.js?v=af08e5c30f"></script>
+    <script type="text/javascript" src="../assets/js/index.js?v=af08e5c30f"></script>
+
+</body>
+</html>
