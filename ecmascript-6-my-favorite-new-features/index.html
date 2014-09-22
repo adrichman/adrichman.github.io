@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    
+    <title>ECMAscript 6, my favorite new features</title>
+    <meta name="description" content="" />
+
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="shortcut icon" href="../favicon.ico">
+
+    
+    <link rel="stylesheet" type="text/css" href="../assets/css/screen.css?v=45433e9b05" />
+    <link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Noto+Serif:400,700,400italic|Open+Sans:700,400" />
+
+    
+    <meta name="generator" content="Ghost 0.4" />
+<link rel="alternate" type="application/rss+xml" title="#refactoring." href="../rss/index.html">
+<link rel="canonical" href="http://adamrichman.com/ecmascript-6-my-favorite-new-features/" />
+</head>
+<body class="post-template">
+
+    
+    
+
+
+
+<main class="content" role="main">
+
+    <article class="post">
+
+        
+        <header class="post-header">
+            <a class="blog-logo" href="http://adamrichman.com">
+                
+                    <span class="blog-title">#refactoring.</span>
+                
+            </a>
+        </header>
+
+        
+        
+
+            <span class="post-meta"><time datetime="2014-09-22">22 Sep 2014</time> </span>
+
+            <h1 class="post-title">ECMAscript 6, my favorite new features</h1>
+
+            <section class="post-content">
+                <p>I was recently asked about which features of ES6 that most excite me, and in answering, I came to realize that I had not transcended the curiosity that comes from reading about it. That is, I haven't implemented the new experiemental features yet. So before doing so, I figured this would be a good way to review and familiarize my brain and hands with the powers of ES6.</p>
+
+<p>Here's a little dive into some exciting new features.</p>
+
+<p><em>Inspiration and examples pulled from <a href="http://www.es6fiddle.net/">ES6fiddle</a> and <a href="http://egghead.io">Egghead.io</a>.</em></p>
+
+<h3 id="letnotvar">let (not var)</h3>
+
+<p>var is still a perfectly valid declaration for new variables, but the <code>let</code> keyword introduces some more predictable behavior than that which comes packaged with vanilla javascript.</p>
+
+<h5 id="blockscope">block scope</h5>
+
+<p>The keyword <code>let</code> is not hoisted like <code>var</code>, so a declaration made with <code>let</code> is only created at the time of its declaration. </p>
+
+<p>In respect to block scope, this means that you do not need to be in the scope of a function in order to have different values for the same variable names:  </p>
+
+<pre><code>var i = "outside";  
+{
+    var i = "inside";
+}
+console.log(i); // "inside"
+
+var i = "outside";  
+{
+    let i = "inside";
+}
+console.log(i); // "outside"  
+</code></pre>
+
+<h5 id="amoreusefulexample">a more useful example</h5>
+
+<p>A <code>for loop</code> using <code>var</code>, like we're used to, instantiates a variable declared in the front, and then changes the value on every iteration. This can trip us up pretty easily when we pass our first-class functions by reference, and bind values inside of those functions to the variable. For instance:</p>
+
+<pre><code>var functions = [];
+
+// var keyword declares 'i' once
+
+for (var i = 1; i &lt;= 5; i++){  
+  functions.push(function(){
+      console.log(i);
+  });
+}
+
+functions.forEach(function(f){  
+    f();
+});
+</code></pre>
+
+<p>yeilds:  </p>
+
+<pre><code>6  
+6  
+6  
+6  
+6  
+</code></pre>
+
+<p>We know to expect this behavior from javascript, but that doesn't mean we have to like it. Because <code>i</code> is declared once, any function that references it should expect its value to equal whatever the value is <strong>at the time of the function's invocation</strong>. Because we invoke all the functions here after we're done incrementing <strong>the same instance of <code>i</code></strong>, each of these functions will reference its final value.</p>
+
+<p>Using the let keyward inside of our <code>for loop</code> can provide us the behavior that we were most likely hoping for:</p>
+
+<pre><code>var functions = [];
+
+// let keyword declares a new 'i' in block scope, each time
+
+for (let i = 1; i &lt;= 5; i++){  
+  functions.push(function(){
+      console.log(i);
+  });
+}
+
+functions.forEach(function(f){  
+    f();
+});
+</code></pre>
+
+<p>yeilds:  </p>
+
+<pre><code>1  
+2  
+3  
+4  
+5  
+</code></pre>
+
+<p>Nice.</p>
+
+<h3 id="destructuredassignment">Destructured Assignment</h3>
+
+<p>When working with objects with which you are only concerned with particular keys and values, ES6 provides a convenient way of quickly assigning references to those inner keys.</p>
+
+<pre><code>let [one, two] = [1, 2];  
+let {three, four} = {three: 3, four:  4};
+
+console.log(one, two, three, four);
+</code></pre>
+
+<p>yields:  </p>
+
+<pre><code>1 2 3 4  
+</code></pre>
+
+<h3 id="iterators">Iterators</h3>
+
+<p>I can't be the only guy that, in an itertive loop on more than one unfortunate occasion, referred to the index of an array when my intention was to use the value stored at that index. Well, gone are those days. Behold the <code>of</code> keyword:  </p>
+
+<pre><code>var arr = ['A','D','A','M'];  
+var result = '';
+
+for (var i of arr){  
+    result += i;
+};
+console.log(result);  
+</code></pre>
+
+<p>yields:  </p>
+
+<pre><code>"ADAM"  
+</code></pre>
+
+<h3 id="spreadsyntax">Spread syntax</h3>
+
+<p>The <code>spread</code> operator enables us to manipulate values of a collection, as a collection, without having to specifically target them. It works a lot like an <code>each</code> or <code>map</code> method that we would ordinarily pull in via <code>underscore</code> or <code>lodash</code>.</p>
+
+<pre><code>var front = [1,2,3,4,5];  
+var back  = [6,7,8,9,10];  
+front.push(back)  
+console.log(front)
+</code></pre>
+
+<p>yields:  </p>
+
+<pre><code>[1,2,3,4,5,[6,7,8,9,10]]
+</code></pre>
+
+<p>Of course, but... ick. <code>spread</code> syntax to the rescue!</p>
+
+<pre><code>var front = [1,2,3,4,5];  
+var back  = [6,7,8,9,10];  
+front.push(...back)  
+console.log(front)
+</code></pre>
+
+<p>yields:  </p>
+
+<pre><code>[1,2,3,4,5,6,7,8,9,10]
+</code></pre>
+
+<h3 id="defaultparameters">Default Parameters</h3>
+
+<p>Countless times, I have longed for a more semantic way to declare default values for the expected arguments of a function. </p>
+
+<pre><code>var thisThing = thisThing || somethingElse;  
+</code></pre>
+
+<p>We all know what it means, but that doesn't mean it should be necessary. be able to specify default values in the function declaration is convenient and a familiar feature from myriad other languages. Finally, it's here.</p>
+
+<pre><code>function defaults(x = 3, y = 6){  
+    return [x,y];
+}
+</code></pre>
+
+<p>so,  </p>
+
+<pre><code>console.log(defaults());  
+</code></pre>
+
+<p>yields:  </p>
+
+<pre><code>[3,6]
+</code></pre>
+
+<p>and  </p>
+
+<pre><code>console.log(defaults(1,1));  
+</code></pre>
+
+<p>yields:  </p>
+
+<pre><code>[1,1]
+</code></pre>
+
+<p>Lovely.</p>
+
+<h3 id="generators">Generators</h3>
+
+<p>A generator is like a function that can be paused and resumed. It can <code>yield</code> a different value each time (like a <code>return</code>, but without finishing), if that's what you'd like. This example from <a href="http://www.es6fiddle.net/">ES6fiddle</a> shows clearly how we can create a <code>range</code> function.</p>
+
+<pre><code>function* range(start, end, step) {  
+    while (start &lt; end) {
+        yield start;
+        start += step;
+    }
+}
+
+for (let i of range(0, 10, 2)) {  
+    console.log(i);
+}
+</code></pre>
+
+<p>yields:  </p>
+
+<pre><code>0  
+2  
+4  
+6  
+8  
+</code></pre>
+
+<p>Generators come with a promise-like API, including a <code>.next()</code> method. Calling that method will make your generator step to the next <code>yield</code> declaration. In this example from <a href="http://egghead.io">Egghead.io</a>, you can even go so far as to create an infinite loop in a generator:  </p>
+
+<pre><code>function* noStackOverflow(){  
+    let x = 0;
+    let y = 0;
+    while(true){
+        yield {x:x, y:y}
+        x += 2;
+        y += 1;
+    }
+}
+var generator = noStackOverflow();  
+console.log(generator.next().value);  
+console.log('Do something else');  
+console.log(generator.next().value);  
+</code></pre>
+
+<p>yields:  </p>
+
+<pre><code>{x:0,y:0}
+Do something else  
+{x:2,y:1}
+</code></pre>
+
+<p>This generator will continue to generate a new object and set of values for us upon every request.</p>
+
+<h3 id="andsomuchmore">And so much more.</h3>
+
+<p>There are many other great features to get excited about that are not covered here. To name a few:</p>
+
+<ul>
+<li>built-in support for promises using a <code>Promise</code> constructor</li>
+<li>ability to instantiate classes via a <code>class</code> declaration</li>
+<li>function <code>=&gt;</code> notation, which carries much of the same functionality with which it comes in <a href="http://coffeescript.org">Coffeescript</a>.</li>
+</ul>
+            </section>
+
+            <footer class="post-footer">
+
+                <section class="author">
+                    <h4>Adam D Richman</h4>
+                    <p>Food-and-Music-loving Software Engineer</p>
+                    <ul class="author-meta clearfix">
+                        <li>San Francisco, CA</li>
+                        <li><a href="http://www.adamrichman.com">http://www.adamrichman.com</a></li>
+                    </ul>
+                </section>
+
+                <section class="share">
+                    <h4>Share this post</h4>
+                    <a class="icon-twitter" href="https://twitter.com/share?text=ECMAscript%206%2C%20my%20favorite%20new%20features&amp;url=http://adamrichman.com/ecmascript-6-my-favorite-new-features/"
+                        onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
+                        <span class="hidden">Twitter</span>
+                    </a>
+                    <a class="icon-facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://adamrichman.com/ecmascript-6-my-favorite-new-features/"
+                        onclick="window.open(this.href, 'facebook-share','width=580,height=296');return false;">
+                        <span class="hidden">Facebook</span>
+                    </a>
+                    <a class="icon-google-plus" href="https://plus.google.com/share?url=http://adamrichman.com/ecmascript-6-my-favorite-new-features/"
+                       onclick="window.open(this.href, 'google-plus-share', 'width=490,height=530');return false;">
+                        <span class="hidden">Google+</span>
+                    </a>
+                </section>
+
+            </footer>
+
+        
+
+    </article>
+
+</main>
+
+
+    <footer class="site-footer">
+        <a class="subscribe icon-feed" href="http://adamrichman.com/rss/"><span class="tooltip">Subscribe!</span></a>
+        <div class="inner">
+             <section class="copyright">All content copyright <a href="http://adamrichman.com/">#refactoring.</a> &copy; 2014 &bull; All rights reserved.</section>
+             <section class="poweredby">Proudly published with <a class="icon-ghost" href="https://ghost.org">Ghost</a></section>
+        </div>
+    </footer>
+
+    
+    <script src="../public/jquery.js?v=45433e9b05"></script>
+
+    
+    <script type="text/javascript" src="../assets/js/jquery.fitvids.js?v=45433e9b05"></script>
+    <script type="text/javascript" src="../assets/js/index.js?v=45433e9b05"></script>
+
+</body>
+</html>
